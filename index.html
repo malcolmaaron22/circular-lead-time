@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Circular Lead‑Time Calculator</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #0f1720;
+      --muted: #7c8aa5;
+      --text: #e6eefc;
+      --accent1: #46c7ff;  /* order handle */
+      --accent2: #b297ff;  /* delivery marker */
+      --accent3: #93e97f;  /* weeks handle */
+      --ring: #1d2733;
+      --tick: #394657;
+      --tick-strong: #5b6f86;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+      --focus: 2px solid #63b3ff;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f8fb;
+        --panel: #ffffff;
+        --muted: #5b6f86;
+        --text: #0e1726;
+        --ring: #e9eef5;
+        --tick: #c8d2e1;
+        --tick-strong: #8fa2bb;
+        --shadow: 0 8px 24px rgba(17,24,39,.12);
+      }
+    }
+
+    html, body {
+      height: 100%;
+      background: radial-gradient(1200px 800px at 30% -10%, #131a22 0%, var(--bg) 60%);
+      color: var(--text);
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      letter-spacing: .2px;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 32px auto;
+      padding: 0 16px 40px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 22px;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    header p { color: var(--muted); margin: 0; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 560px) 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)) , var(--panel);
+      border: 1px solid rgba(255,255,255,.06);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    .dial-wrap { display: grid; place-items: center; }
+    .dial {
+      width: min(92vw, 560px);
+      aspect-ratio: 1/1;
+      display: block;
+    }
+
+    .controls label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .row + .row { margin-top: 12px; }
+
+    .controls input[type="date"],
+    .controls input[type="number"],
+    .controls input[type="range"],
+    .controls button,
+    .controls .switch {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-sizing: border-box;
+    }
+
+    .controls input[type="range"] { padding: 0; height: 34px; }
+
+    .controls .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .controls .switch input { width: auto; accent-color: var(--accent2); }
+
+    .controls .btns { display: flex; gap: 10px; margin-top: 12px; }
+    .controls .btn {
+      background: linear-gradient(180deg, rgba(146,186,255,.18), rgba(146,186,255,.06));
+      border: 1px solid rgba(146,186,255,.25);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    .controls .btn.secondary {
+      background: var(--bg);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+
+    .result { margin-top: 12px; padding: 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 12px; }
+    .result strong { font-weight: 700; }
+    .result small { color: var(--muted); }
+
+    .copy-row { display:flex; gap:8px; align-items:center; margin-top:8px; }
+
+    .sr-only { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip: rect(0,0,0,0); white-space: nowrap; border:0; }
+
+    /* Focus styles for keyboard users */
+    .kb-focus:focus { outline: var(--focus); outline-offset: 4px; border-radius: 999px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Circular Lead‑Time Calculator</h1>
+      <p>Order date + whole‑week lead time → delivery date. Drag either ring, or use the inputs below. (Sunday reference; MYT)</p>
+    </header>
+
+    <div class="grid">
+      <div class="card dial-wrap">
+        <!-- Accessible live region for result updates -->
+        <div id="live" class="sr-only" aria-live="polite"></div>
+
+        <svg id="dial" class="dial" viewBox="-300 -300 600 600" role="application" aria-label="Circular date and weeks dial">
+          <!-- Rings background -->
+          <defs>
+            <filter id="glow1" x="-200%" y="-200%" width="400%" height="400%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- Outer calendar track -->
+          <circle id="outerTrack" cx="0" cy="0" r="220" fill="none" stroke="var(--ring)" stroke-width="28"/>
+          <!-- Tick marks will be injected here -->
+          <g id="calendarTicks"></g>
+          <g id="monthLabels"></g>
+
+          <!-- Delivery marker (outer) -->
+          <g id="deliveryMarker" filter="url(#glow1)">
+            <circle r="6" fill="var(--accent2)" />
+            <text y="-14" text-anchor="middle" fill="var(--accent2)" font-size="12">Result</text>
+          </g>
+
+          <!-- Outer handle: order/target date -->
+          <g id="outerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Date pointer" aria-valuemin="1" aria-valuemax="366" aria-valuenow="1" aria-valuetext="">
+            <circle r="10" fill="var(--accent1)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
+            <circle r="18" fill="transparent" stroke="var(--accent1)" stroke-opacity=".25" stroke-width="2" />
+            <text y="-14" text-anchor="middle" fill="var(--accent1)" font-size="12">Date</text>
+          </g>
+
+          <!-- Inner weeks track -->
+          <circle id="innerTrack" cx="0" cy="0" r="140" fill="none" stroke="var(--ring)" stroke-width="26"/>
+          <g id="weeksTicks"></g>
+
+          <!-- Inner handle: weeks -->
+          <g id="innerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Weeks pointer" aria-valuemin="0" aria-valuemax="52" aria-valuenow="0" aria-valuetext="0 weeks">
+            <circle r="10" fill="var(--accent3)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
+            <circle r="18" fill="transparent" stroke="var(--accent3)" stroke-opacity=".25" stroke-width="2" />
+            <text y="-14" text-anchor="middle" fill="var(--accent3)" font-size="12">Weeks</text>
+          </g>
+
+          <!-- Center label -->
+          <g id="centerLabel" aria-hidden="true">
+            <circle r="90" fill="none" stroke="rgba(255,255,255,.06)" />
+            <text x="0" y="0" text-anchor="middle" dominant-baseline="middle" fill="var(--muted)" font-size="14">Number of Weeks</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="card controls" id="controlCard">
+        <div class="row">
+          <div>
+            <label id="dateLabel" for="dateInput">Order date</label>
+            <input id="dateInput" type="date" aria-labelledby="dateLabel" />
+          </div>
+          <div>
+            <label for="weeksInput">Weeks</label>
+            <input id="weeksInput" type="number" min="0" max="52" step="1" value="0" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="weeksRange">Weeks (slider)</label>
+            <input id="weeksRange" type="range" min="0" max="52" step="1" value="0" />
+          </div>
+          <label class="switch" for="reverseToggle">
+            <input id="reverseToggle" type="checkbox" /> Reverse mode (Target − Weeks → Order)
+          </label>
+        </div>
+        <div class="btns">
+          <button class="btn" id="todayBtn" type="button">Today</button>
+          <button class="btn secondary" id="resetBtn" type="button">Reset</button>
+        </div>
+
+        <div class="result" id="resultBox" aria-live="polite"></div>
+        <div class="copy-row">
+          <button class="btn secondary" id="copyBtn" type="button">Copy result</button>
+          <small id="copyStatus" aria-live="polite"></small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const tz = 'Asia/Kuala_Lumpur';
+    const maxWeeks = 52;
+    const svg = document.getElementById('dial');
+
+    const outerR = 220; // outer ring radius
+    const innerR = 140; // inner ring radius
+
+    const calendarTicks = document.getElementById('calendarTicks');
+    const monthLabels   = document.getElementById('monthLabels');
+    const weeksTicks    = document.getElementById('weeksTicks');
+
+    const outerHandle   = document.getElementById('outerHandle');
+    const innerHandle   = document.getElementById('innerHandle');
+    const deliveryMarker= document.getElementById('deliveryMarker');
+
+    const dateInput  = document.getElementById('dateInput');
+    const dateLabel  = document.getElementById('dateLabel');
+    const weeksInput = document.getElementById('weeksInput');
+    const weeksRange = document.getElementById('weeksRange');
+    const reverseToggle = document.getElementById('reverseToggle');
+
+    const todayBtn   = document.getElementById('todayBtn');
+    const resetBtn   = document.getElementById('resetBtn');
+    const resultBox  = document.getElementById('resultBox');
+    const liveRegion = document.getElementById('live');
+    const copyBtn    = document.getElementById('copyBtn');
+    const copyStatus = document.getElementById('copyStatus');
+
+    // Utilities
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+    function pad(n) { return n.toString().padStart(2,'0'); }
+
+    function isLeap(y) { return new Date(y, 1, 29).getMonth() === 1; }
+
+    function daysInYear(y) { return isLeap(y) ? 366 : 365; }
+
+    function fmtDate(d) {
+      const y = d.getFullYear();
+      const m = pad(d.getMonth()+1);
+      const day = pad(d.getDate());
+      return `${y}-${m}-${day}`;
+    }
+
+    function parseISODate(iso) {
+      const [y,m,d] = iso.split('-').map(Number);
+      return new Date(y, m-1, d, 12, 0, 0, 0); // noon local to avoid edge cases
+    }
+
+    function todayInTZ() {
+      // Get current date in Asia/Kuala_Lumpur using the parts API
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+      const y = Number(parts.find(p=>p.type==='year').value);
+      const m = Number(parts.find(p=>p.type==='month').value);
+      const d = Number(parts.find(p=>p.type==='day').value);
+      return new Date(y, m-1, d, 12, 0, 0, 0);
+    }
+
+    function dayOfYear(date) {
+      const start = new Date(date.getFullYear(), 0, 1, 12, 0, 0, 0);
+      const diff = (date - start);
+      return Math.floor(diff / 86400000) + 1; // 1..365/366
+    }
+
+    function dateFromDoy(year, doy) {
+      return new Date(year, 0, doy, 12, 0, 0, 0);
+    }
+
+    function addDays(date, days) {
+      const d = new Date(date.getTime());
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function angleFromDoy(doy, year) {
+      const total = daysInYear(year);
+      const frac = (doy - 1) / total; // 0..(n-1)/n
+      return frac * 360 - 90; // -90 starts at 12 o'clock
+    }
+
+    function doyFromAngle(angle, year) {
+      const total = daysInYear(year);
+      const a = (angle + 90) % 360; // 0..360
+      const norm = (a < 0 ? a + 360 : a) / 360; // 0..1
+      let doy = Math.round(norm * total) + 1; // 1..(total+1)
+      if (doy > total) doy = 1; // wrap
+      return doy;
+    }
+
+    function angleFromWeeks(weeks) {
+      return (weeks / maxWeeks) * 360 - 90;
+    }
+
+    function weeksFromAngle(angle) {
+      const a = (angle + 90) % 360;
+      const norm = (a < 0 ? a + 360 : a) / 360;
+      return Math.round(norm * maxWeeks);
+    }
+
+    // Draw static parts: ticks and labels for a given base year
+    function renderCalendarRing(year) {
+      calendarTicks.innerHTML = '';
+      monthLabels.innerHTML = '';
+      const total = daysInYear(year);
+
+      // Day ticks
+      for (let i=1; i<=total; i++) {
+        const ang = angleFromDoy(i, year) * Math.PI/180;
+        const outer = 220, inner = 220-14; // tick length 14 default
+        let len = 10; // base small tick
+        // Stronger ticks on 1st and every 5th day
+        const date = dateFromDoy(year, i);
+        const day = date.getDate();
+        if (day === 1) len = 18; else if (day % 5 === 0) len = 14;
+        const r1 = outer; const r2 = outer - len;
+        const x1 = Math.cos(ang) * r1, y1 = Math.sin(ang) * r1;
+        const x2 = Math.cos(ang) * r2, y2 = Math.sin(ang) * r2;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', x1.toFixed(2));
+        line.setAttribute('y1', y1.toFixed(2));
+        line.setAttribute('x2', x2.toFixed(2));
+        line.setAttribute('y2', y2.toFixed(2));
+        line.setAttribute('stroke', (day===1? 'var(--tick-strong)':'var(--tick)'));
+        line.setAttribute('stroke-width', day===1? '2' : '1.2');
+        calendarTicks.appendChild(line);
+      }
+
+      // Month labels at their mid angles; show native month names using locale
+      const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'long' });
+      for (let m=0; m<12; m++) {
+        const start = new Date(year, m, 1, 12, 0, 0, 0);
+        const end   = new Date(year, m+1, 0, 12, 0, 0, 0);
+        const startDoy = dayOfYear(start);
+        const endDoy   = dayOfYear(end);
+        const midDoy   = Math.round((startDoy + endDoy)/2);
+        const angDeg   = angleFromDoy(midDoy, year);
+        const ang      = angDeg * Math.PI/180;
+        const r = 242; // outside the track
+        const x = Math.cos(ang) * r;
+        const y = Math.sin(ang) * r;
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', x.toFixed(2));
+        text.setAttribute('y', y.toFixed(2));
+        text.setAttribute('text-anchor','middle');
+        text.setAttribute('dominant-baseline','central');
+        text.setAttribute('fill','var(--muted)');
+        text.setAttribute('font-size','12');
+        text.textContent = monthFmt.format(start);
+        monthLabels.appendChild(text);
+      }
+    }
+
+    function renderWeeksRing() {
+      weeksTicks.innerHTML = '';
+      for (let w=0; w<=maxWeeks; w++) {
+        const ang = angleFromWeeks(w) * Math.PI/180;
+        let len = (w % 5 === 0) ? 16 : 10;
+        const r1 = innerR; const r2 = innerR - len;
+        const x1 = Math.cos(ang) * r1, y1 = Math.sin(ang) * r1;
+        const x2 = Math.cos(ang) * r2, y2 = Math.sin(ang) * r2;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', x1.toFixed(2));
+        line.setAttribute('y1', y1.toFixed(2));
+        line.setAttribute('x2', x2.toFixed(2));
+        line.setAttribute('y2', y2.toFixed(2));
+        line.setAttribute('stroke', (w%5===0? 'var(--tick-strong)':'var(--tick)'));
+        line.setAttribute('stroke-width', (w%5===0? '2':'1.2'));
+        weeksTicks.appendChild(line);
+        if (w % 5 === 0) {
+          const labelR = innerR - 28;
+          const tx = Math.cos(ang) * labelR, ty = Math.sin(ang) * labelR;
+          const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+          text.setAttribute('x', tx.toFixed(2));
+          text.setAttribute('y', ty.toFixed(2));
+          text.setAttribute('text-anchor','middle');
+          text.setAttribute('dominant-baseline','central');
+          text.setAttribute('fill','var(--muted)');
+          text.setAttribute('font-size','12');
+          text.textContent = w.toString();
+          weeksTicks.appendChild(text);
+        }
+      }
+    }
+
+    // Position helpers
+    function placeAtPolar(el, r, angleDeg) {
+      const a = angleDeg * Math.PI/180;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      el.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+    }
+
+    // State
+    let reverse = false; // false: forward (order + weeks => delivery). true: reverse (target - weeks => order)
+    let weeks = 0;
+    let currentDate = todayInTZ(); // order date in forward, target date in reverse
+
+    // Derived
+    function computeResult() {
+      const days = weeks * 7;
+      if (!reverse) {
+        const order = currentDate;
+        const delivery = addDays(order, days);
+        return { order, delivery };
+      } else {
+        const target = currentDate;
+        const order = addDays(target, -days);
+        return { order, delivery: target };
+      }
+    }
+
+    function updateUI(redrawCalendarYear = false) {
+      // Sync inputs
+      dateLabel.textContent = reverse ? 'Target date' : 'Order date';
+      dateInput.value = fmtDate(currentDate);
+      weeksInput.value = weeks;
+      weeksRange.value = weeks;
+      reverseToggle.checked = reverse;
+
+      // Calendar ring year uses the year of the selected date
+      const y = currentDate.getFullYear();
+      if (redrawCalendarYear) renderCalendarRing(y);
+
+      // Position handles
+      const doy = dayOfYear(currentDate);
+      const angDate = angleFromDoy(doy, y);
+      placeAtPolar(outerHandle, outerR, angDate);
+      outerHandle.setAttribute('aria-valuenow', String(doy));
+      outerHandle.setAttribute('aria-valuetext', `${fmtDate(currentDate)}`);
+
+      const angWeeks = angleFromWeeks(weeks);
+      placeAtPolar(innerHandle, innerR, angWeeks);
+      innerHandle.setAttribute('aria-valuenow', String(weeks));
+      innerHandle.setAttribute('aria-valuetext', `${weeks} weeks`);
+
+      // Result marker
+      const { order, delivery } = computeResult();
+      const resultDate = reverse ? order : delivery;
+      const resultYear = currentDate.getFullYear();
+      const resultDoy = dayOfYear(resultDate.getFullYear() === resultYear ? resultDate : new Date(resultYear, resultDate.getMonth(), resultDate.getDate(), 12));
+      // Place marker at same ring based on the current ring's year geometry
+      const angRes = angleFromDoy(resultDoy, resultYear);
+      placeAtPolar(deliveryMarker, outerR, angRes);
+
+      // Result text
+      const daysTotal = weeks * 7;
+      const resText = !reverse
+        ? `<strong>Order</strong> ${fmtDate(order)} + <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>${fmtDate(delivery)}</strong> <small>(${daysTotal} days)</small>`
+        : `<strong>Target</strong> ${fmtDate(delivery)} − <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>Order ${fmtDate(order)}</strong> <small>(${daysTotal} days)</small>`;
+      resultBox.innerHTML = resText;
+      liveRegion.textContent = resultBox.textContent;
+    }
+
+    // Init
+    function init() {
+      renderWeeksRing();
+      const today = todayInTZ();
+      currentDate = today;
+      renderCalendarRing(today.getFullYear());
+      updateUI();
+    }
+
+    // Inputs listeners
+    dateInput.addEventListener('input', () => {
+      const d = parseISODate(dateInput.value);
+      if (!isNaN(+d)) {
+        const oldYear = currentDate.getFullYear();
+        currentDate = d;
+        const newYear = currentDate.getFullYear();
+        updateUI(oldYear !== newYear);
+      }
+    });
+
+    weeksInput.addEventListener('input', () => {
+      let v = clamp(parseInt(weeksInput.value || '0', 10), 0, maxWeeks);
+      v = isNaN(v) ? 0 : v;
+      weeks = v;
+      updateUI();
+    });
+
+    weeksRange.addEventListener('input', () => {
+      weeks = parseInt(weeksRange.value, 10);
+      updateUI();
+    });
+
+    reverseToggle.addEventListener('change', () => {
+      reverse = reverseToggle.checked;
+      updateUI();
+    });
+
+    todayBtn.addEventListener('click', () => {
+      const oldYear = currentDate.getFullYear();
+      currentDate = todayInTZ();
+      updateUI(oldYear !== currentDate.getFullYear());
+    });
+
+    resetBtn.addEventListener('click', () => {
+      weeks = 0;
+      const oldYear = currentDate.getFullYear();
+      currentDate = todayInTZ();
+      updateUI(oldYear !== currentDate.getFullYear());
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(resultBox.textContent.trim());
+        copyStatus.textContent = 'Copied!';
+        setTimeout(()=>copyStatus.textContent='', 1500);
+      } catch (e) {
+        copyStatus.textContent = 'Copy failed';
+        setTimeout(()=>copyStatus.textContent='', 1500);
+      }
+    });
+
+    // Pointer interactions
+    let dragging = null; // 'outer' | 'inner'
+
+    function svgPoint(evt) {
+      const pt = svg.createSVGPoint();
+      const ev = evt.touches ? evt.touches[0] : evt;
+      pt.x = ev.clientX; pt.y = ev.clientY;
+      const ctm = svg.getScreenCTM().inverse();
+      const p = pt.matrixTransform(ctm);
+      return p; // in SVG coordinates
+    }
+
+    function angleFromPoint(p) {
+      return Math.atan2(p.y, p.x) * 180/Math.PI; // -180..180, 0 at +x (3 o'clock)
+    }
+
+    function onPointerDown(which) {
+      return (evt) => {
+        dragging = which;
+        evt.preventDefault();
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp, { once: true });
+        onPointerMove(evt); // update immediately
+      };
+    }
+
+    function onPointerMove(evt) {
+      if (!dragging) return;
+      const p = svgPoint(evt);
+      let ang = angleFromPoint(p); // -180..180
+      if (dragging === 'outer') {
+        const newDoy = doyFromAngle(ang, currentDate.getFullYear());
+        const d = dateFromDoy(currentDate.getFullYear(), newDoy);
+        const oldYear = currentDate.getFullYear();
+        currentDate = d;
+        updateUI(oldYear !== currentDate.getFullYear());
+      } else if (dragging === 'inner') {
+        const w = clamp(weeksFromAngle(ang), 0, maxWeeks);
+        weeks = w;
+        updateUI();
+      }
+    }
+
+    function onPointerUp() {
+      dragging = null;
+      window.removeEventListener('pointermove', onPointerMove);
+    }
+
+    outerHandle.addEventListener('pointerdown', onPointerDown('outer'));
+    innerHandle.addEventListener('pointerdown', onPointerDown('inner'));
+
+    // Make the tracks clickable/snappable
+    document.getElementById('outerTrack').addEventListener('pointerdown', onPointerDown('outer'));
+    document.getElementById('innerTrack').addEventListener('pointerdown', onPointerDown('inner'));
+
+    // Keyboard controls
+    function keyAdjust(el, type) {
+      el.addEventListener('keydown', (e) => {
+        let handled = true;
+        const step = (key) => (key==='PageUp'||key==='PageDown') ? 5 : 1;
+        if (type==='outer') {
+          if (e.key==='ArrowRight' || e.key==='ArrowUp' || e.key==='PageUp') {
+            currentDate = addDays(currentDate, step(e.key));
+          } else if (e.key==='ArrowLeft' || e.key==='ArrowDown' || e.key==='PageDown') {
+            currentDate = addDays(currentDate, -step(e.key));
+          } else if (e.key==='Home') {
+            currentDate = new Date(currentDate.getFullYear(), 0, 1, 12);
+          } else if (e.key==='End') {
+            currentDate = new Date(currentDate.getFullYear(), 11, 31, 12);
+          } else {
+            handled = false;
+          }
+          if (handled) {
+            e.preventDefault();
+            updateUI(false);
+          }
+        } else {
+          if (e.key==='ArrowRight' || e.key==='ArrowUp' || e.key==='PageUp') {
+            weeks = clamp(weeks + step(e.key), 0, maxWeeks);
+          } else if (e.key==='ArrowLeft' || e.key==='ArrowDown' || e.key==='PageDown') {
+            weeks = clamp(weeks - step(e.key), 0, maxWeeks);
+          } else if (e.key==='Home') {
+            weeks = 0;
+          } else if (e.key==='End') {
+            weeks = maxWeeks;
+          } else {
+            handled = false;
+          }
+          if (handled) {
+            e.preventDefault();
+            updateUI(false);
+          }
+        }
+      });
+    }
+
+    keyAdjust(outerHandle, 'outer');
+    keyAdjust(innerHandle, 'inner');
+
+    init();
+
+    // Example check in console:
+    // 10 Aug 2025 + 10 weeks should be 19 Oct 2025
+    console.log('Validation example: 2025-08-10 + 10 weeks =', fmtDate(addDays(new Date(2025,7,10,12), 70)));
+  })();
+  </script>
+</body>
+</html>
