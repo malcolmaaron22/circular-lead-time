@@ -209,13 +209,13 @@
           </g>
           
           <!-- Bookmark marker -->
-          <g id="bookmarkMarker" visibility="hidden">
+          <g id="bookmarkMarker" visibility="hidden" filter="url(#glow1)">
             <circle r="8" fill="var(--bookmark-color)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
             <text id="bookmarkLabel" y="14" text-anchor="middle" fill="var(--bookmark-color)" font-size="12"></text>
           </g>
 
           <!-- Outer handle: order/target date -->
-          <g id="outerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Date pointer" aria-valuemin="1" aria-valuemax="366" aria-valuenow="1" aria-valuetext="">
+          <g id="outerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Date pointer" aria-valuemin="1" aria-valuemax="366" aria-valuenow="1" aria-valuetext="" filter="url(#glow1)">
             <circle r="10" fill="var(--accent1)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
             <circle r="18" fill="transparent" stroke="var(--accent1)" stroke-opacity=".25" stroke-width="2" />
             <text y="-14" text-anchor="middle" fill="var(--accent1)" font-size="12">Date</text>
@@ -226,7 +226,7 @@
           <g id="weeksTicks"></g>
 
           <!-- Inner handle: weeks -->
-          <g id="innerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Weeks pointer" aria-valuemin="0" aria-valuemax="52" aria-valuenow="0" aria-valuetext="0 weeks">
+          <g id="innerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Weeks pointer" aria-valuemin="0" aria-valuemax="52" aria-valuenow="0" aria-valuetext="0 weeks" filter="url(#glow1)">
             <circle r="10" fill="var(--accent3)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
             <circle r="18" fill="transparent" stroke="var(--accent3)" stroke-opacity=".25" stroke-width="2" />
             <text y="-14" text-anchor="middle" fill="var(--accent3)" font-size="12">Weeks</text>
