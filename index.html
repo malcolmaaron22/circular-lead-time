@@ -150,6 +150,11 @@
     .result { margin-top: 12px; padding: 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 12px; }
     .result strong { font-weight: 700; }
     .result small { color: var(--muted); }
+    .result .date-part { color: var(--accent1); }
+    .result .weeks-part { color: var(--accent3); }
+    .result .delivery-part { color: var(--accent2); }
+    .result .bookmark-part { color: var(--bookmark-color); }
+
 
     .copy-row { display:flex; gap:8px; align-items:center; margin-top:8px; }
 
@@ -592,7 +597,7 @@
       placeAtPolar(outerHandle, outerR, angDate);
       outerHandle.setAttribute('aria-valuenow', String(doy));
       outerHandle.setAttribute('aria-valuetext', `${fmtDateUK(currentDate)}`);
-
+      
       const angWeeks = angleFromWeeks(weeks);
       placeAtPolar(innerHandle, innerR, angWeeks);
       innerHandle.setAttribute('aria-valuenow', String(weeks));
@@ -621,10 +626,18 @@
 
       // Result text
       const daysTotal = weeks * 7;
+      const orderDateStr = fmtDateUK(order);
+      const deliveryDateStr = fmtDateUK(delivery);
+      
       const resText = !reverse
-        ? `<strong>Order</strong> ${fmtDateUK(order)} + <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>${fmtDateUK(delivery)}</strong> <small>(${daysTotal} days)</small>`
-        : `<strong>Target</strong> ${fmtDateUK(delivery)} − <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>Order ${fmtDateUK(order)}</strong> <small>(${daysTotal} days)</small>`;
-      resultBox.innerHTML = resText;
+        ? `<strong>Order</strong> <strong class="date-part">${orderDateStr}</strong> + <strong><strong class="weeks-part">${weeks}</strong></strong> week${weeks!==1?'s':''} → <strong><strong class="delivery-part">${deliveryDateStr}</strong></strong> <small>(${daysTotal} days)</small>`
+        : `<strong>Target</strong> <strong class="delivery-part">${deliveryDateStr}</strong> − <strong><strong class="weeks-part">${weeks}</strong></strong> week${weeks!==1?'s':''} → <strong>Order <strong class="date-part">${orderDateStr}</strong></strong> <small>(${daysTotal} days)</small>`;
+      
+      let bookmarkText = '';
+      if (bookmark) {
+          bookmarkText = `<br><strong>Bookmark</strong> <strong class="bookmark-part">${bookmark.name}</strong> at <strong class="bookmark-part">${fmtDateUK(bookmark.date)}</strong>`;
+      }
+      resultBox.innerHTML = resText + bookmarkText;
       liveRegion.textContent = resultBox.textContent;
     }
 
