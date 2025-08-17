@@ -124,7 +124,12 @@
       box-sizing: border-box;
     }
 
-    .controls input[type="range"] { padding: 0; height: 34px; }
+    /* Update slider color to green */
+    .controls input[type="range"] {
+      padding: 0;
+      height: 34px;
+      accent-color: var(--accent3);
+    }
 
     .controls .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
     .controls .switch input { width: auto; accent-color: var(--accent2); }
@@ -263,7 +268,7 @@
         </div>
         <div class="btns">
           <button class="btn" id="todayBtn" type="button">Today</button>
-          <button class="btn secondary" id="resetBtn" type="button">Reset</button>
+          <button class="btn" id="resetBtn" type="button">Reset</button>
         </div>
 
         <div class="result" id="resultBox" aria-live="polite"></div>
@@ -284,11 +289,11 @@
                 <label for="bookmarkDateInput">Date</label>
                 <input id="bookmarkDateInput" type="date" />
             </div>
-            <button class="btn secondary" id="saveBookmarkBtn" type="button">Save</button>
+            <button class="btn" id="saveBookmarkBtn" type="button">Save</button>
         </div>
         <div class="bookmark-row load" style="margin-top: 10px;">
-            <button class="btn secondary" id="loadBookmarkBtn" type="button">Load Bookmark</button>
-            <button class="btn secondary" id="clearBookmarkBtn" type="button">Clear Bookmark</button>
+            <button class="btn" id="loadBookmarkBtn" type="button">Load Bookmark</button>
+            <button class="btn" id="clearBookmarkBtn" type="button">Clear Bookmark</button>
         </div>
 
       </div>
