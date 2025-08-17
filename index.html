@@ -89,6 +89,14 @@
       padding: 18px;
     }
 
+    /* Style the h2 headings inside the cards */
+    .card h2 {
+      font-size: 1.5rem; /* Set a consistent size */
+      text-align: center; /* Center the heading text */
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+
     .card.controls {
       max-width: 400px;
       /* Add justify-self to push the card to the right side of its grid cell. */
@@ -175,6 +183,7 @@
 
     <div class="grid">
       <div class="card dial-wrap">
+        <h2>Circle Calendar</h2>
         <!-- Accessible live region for result updates -->
         <div id="live" class="sr-only" aria-live="polite"></div>
 
@@ -238,6 +247,7 @@
       </div>
 
       <div class="card controls" id="controlCard">
+        <h2>Control Panel</h2>
         <div class="row">
           <div>
             <label id="dateLabel" for="dateInput">Order date</label>
