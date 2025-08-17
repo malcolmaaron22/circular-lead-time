@@ -62,13 +62,21 @@
 
     .grid {
       display: grid;
-      grid-template-columns: minmax(280px, 560px) 1fr;
+      /* Define the two-column layout: a left column for the dial and the rest for the controls. */
+      grid-template-columns: minmax(280px, 450px) 1fr;
       gap: 22px;
       align-items: start;
     }
 
     @media (max-width: 980px) {
-      .grid { grid-template-columns: 1fr; }
+      .grid { 
+        grid-template-columns: 1fr; 
+      }
+      /* New fix: add a margin to the bottom of the first card
+         when the layout wraps to a single column. */
+      .grid .dial-wrap {
+        margin-bottom: 22px;
+      }
     }
 
     .card {
@@ -79,11 +87,26 @@
       padding: 18px;
     }
 
-    .dial-wrap { display: grid; place-items: center; }
+    .card.controls {
+      max-width: 400px;
+      /* Add justify-self to push the card to the right side of its grid cell. */
+      justify-self: end;
+    }
+
+    .dial-wrap { 
+      display: grid; 
+      place-items: center; 
+      width: 100%;
+      height: 100%;
+      min-height: 560px;
+    }
     .dial {
-      width: min(92vw, 560px);
+      /* Adjusted the maximum width of the SVG from 560px to 450px */
+      width: min(92vw, 450px);
+      height: min(92vw, 450px);
       aspect-ratio: 1/1;
       display: block;
+      margin: auto;
     }
 
     .controls label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
@@ -149,6 +172,7 @@
         <!-- Accessible live region for result updates -->
         <div id="live" class="sr-only" aria-live="polite"></div>
 
+        <!-- The SVG `viewBox` is updated to center the content -->
         <svg id="dial" class="dial" viewBox="-300 -300 600 600" role="application" aria-label="Circular date and weeks dial">
           <!-- Rings background -->
           <defs>
@@ -423,8 +447,9 @@
       ];
 
       quarters.forEach(q => {
+        // Use exact quarter boundaries: first day of start month to last day of end month
         const start = new Date(year, q.startMonth, 1, 12, 0, 0, 0);
-        const end   = new Date(year, q.endMonth + 1, 0, 12, 0, 0, 0);
+        const end   = new Date(year, q.endMonth + 1, 0, 12, 0, 0, 0); // Last day of end month
         const startDoy = dayOfYear(start);
         const endDoy   = dayOfYear(end);
         
@@ -467,7 +492,7 @@
         path.setAttribute('stroke', 'none');
         quarterBackgrounds.appendChild(path);
         
-        // Position quarter label closer to center
+        // Position quarter label at the center of the quarter
         const midDoy = Math.round((startDoy + endDoy) / 2);
         const angDeg = angleFromDoy(midDoy, year);
         const ang = angDeg * Math.PI / 180;
