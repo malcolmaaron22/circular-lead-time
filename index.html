@@ -272,7 +272,28 @@
 
     function daysInYear(y) { return isLeap(y) ? 366 : 365; }
 
-    function fmtDate(d) {
+    // NEW: Helper function for date ordinal suffix (1st, 2nd, etc.)
+    function getOrdinalSuffix(day) {
+        if (day > 3 && day < 21) return 'th'; // for 11th, 12th, 13th
+        switch (day % 10) {
+            case 1: return 'st';
+            case 2: return 'nd';
+            case 3: return 'rd';
+            default: return 'th';
+        }
+    }
+
+    // NEW: Formats date to UK style for display (e.g., 19th Aug 2025)
+    function fmtDateUK(d) {
+      const day = d.getDate();
+      const month = d.toLocaleString('en-GB', { month: 'short' });
+      const year = d.getFullYear();
+      const suffix = getOrdinalSuffix(day);
+      return `${day}${suffix} ${month} ${year}`;
+    }
+
+    // RENAMED: Formats date to ISO style for the <input type="date"> element
+    function fmtDateISO(d) {
       const y = d.getFullYear();
       const m = pad(d.getMonth()+1);
       const day = pad(d.getDate());
@@ -450,7 +471,7 @@
     function updateUI(redrawCalendarYear = false) {
       // Sync inputs
       dateLabel.textContent = reverse ? 'Target date' : 'Order date';
-      dateInput.value = fmtDate(currentDate);
+      dateInput.value = fmtDateISO(currentDate); // UPDATED: Use ISO format for input
       weeksInput.value = weeks;
       weeksRange.value = weeks;
       reverseToggle.checked = reverse;
@@ -464,7 +485,7 @@
       const angDate = angleFromDoy(doy, y);
       placeAtPolar(outerHandle, outerR, angDate);
       outerHandle.setAttribute('aria-valuenow', String(doy));
-      outerHandle.setAttribute('aria-valuetext', `${fmtDate(currentDate)}`);
+      outerHandle.setAttribute('aria-valuetext', `${fmtDateUK(currentDate)}`); // UPDATED: Use UK format for accessibility text
 
       const angWeeks = angleFromWeeks(weeks);
       placeAtPolar(innerHandle, innerR, angWeeks);
@@ -482,9 +503,10 @@
 
       // Result text
       const daysTotal = weeks * 7;
+      // UPDATED: Use UK format in result text
       const resText = !reverse
-        ? `<strong>Order</strong> ${fmtDate(order)} + <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>${fmtDate(delivery)}</strong> <small>(${daysTotal} days)</small>`
-        : `<strong>Target</strong> ${fmtDate(delivery)} − <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>Order ${fmtDate(order)}</strong> <small>(${daysTotal} days)</small>`;
+        ? `<strong>Order</strong> ${fmtDateUK(order)} + <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>${fmtDateUK(delivery)}</strong> <small>(${daysTotal} days)</small>`
+        : `<strong>Target</strong> ${fmtDateUK(delivery)} − <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>Order ${fmtDateUK(order)}</strong> <small>(${daysTotal} days)</small>`;
       resultBox.innerHTML = resText;
       liveRegion.textContent = resultBox.textContent;
     }
@@ -653,7 +675,7 @@
 
     // Example check in console:
     // 10 Aug 2025 + 10 weeks should be 19 Oct 2025
-    console.log('Validation example: 2025-08-10 + 10 weeks =', fmtDate(addDays(new Date(2025,7,10,12), 70)));
+    console.log('Validation example: 10th Aug 2025 + 10 weeks =', fmtDateUK(addDays(new Date(2025,7,10,12), 70)));
   })();
   </script>
 </body>
