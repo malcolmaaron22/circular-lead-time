@@ -13,6 +13,7 @@
       --accent1: #46c7ff;  /* order handle */
       --accent2: #b297ff;  /* delivery marker */
       --accent3: #93e97f;  /* weeks handle */
+      --bookmark1: #ff9f6b; /* new bookmark color 1 (orange) */
       --ring: #1d2733;
       --tick: #394657;
       --tick-strong: #5b6f86;
@@ -31,6 +32,7 @@
         --tick: #c8d2e1;
         --tick-strong: #8fa2bb;
         --shadow: 0 8px 24px rgba(17,24,39,.12);
+        --bookmark1: #ff7841;
       }
     }
 
@@ -118,7 +120,8 @@
     .controls input[type="number"],
     .controls input[type="range"],
     .controls button,
-    .controls .switch {
+    .controls .switch,
+    .controls input[type="text"] {
       width: 100%;
       background: var(--bg);
       border: 1px solid rgba(255,255,255,.06);
@@ -147,6 +150,9 @@
       background: var(--bg);
       border: 1px solid rgba(255,255,255,.06);
     }
+    
+    .bookmark-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 14px; }
+    .bookmark-row + .bookmark-row { margin-top: 8px; }
 
     .result { margin-top: 12px; padding: 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 12px; }
     .result strong { font-weight: 700; }
@@ -197,6 +203,12 @@
           <g id="deliveryMarker" filter="url(#glow1)">
             <circle r="6" fill="var(--accent2)" />
             <text y="-14" text-anchor="middle" fill="var(--accent2)" font-size="12">Result</text>
+          </g>
+
+          <!-- NEW: Single Bookmark marker -->
+          <g id="bookmarkMarker" filter="url(#glow1)" style="display: none;">
+            <circle r="6" fill="var(--bookmark1)" />
+            <text y="-14" text-anchor="middle" fill="var(--bookmark1)" font-size="12" id="bookmarkNameText">Saved</text>
           </g>
 
           <!-- Outer handle: order/target date -->
@@ -255,6 +267,26 @@
           <button class="btn secondary" id="copyBtn" type="button">Copy result</button>
           <small id="copyStatus" aria-live="polite"></small>
         </div>
+
+        <!-- NEW: Updated Single Bookmark section with named input -->
+        <div class="result" id="bookmarkSection">
+          <h4>Bookmark</h4>
+          <div class="row">
+            <div>
+              <label for="bookmarkDateInput">Bookmark date</label>
+              <input id="bookmarkDateInput" type="date" />
+            </div>
+            <div>
+              <label for="bookmarkNameInput">Bookmark name</label>
+              <input id="bookmarkNameInput" type="text" placeholder="Enter name" />
+            </div>
+          </div>
+          <div class="btns">
+            <button class="btn" id="saveBookmarkBtn" type="button">Save Bookmark</button>
+            <button class="btn secondary" id="clearBtn" type="button">Clear Bookmark</button>
+          </div>
+          <small id="bookmarkStatus" style="display:block; margin-top: 8px; color: var(--muted);"></small>
+        </div>
       </div>
     </div>
   </div>
@@ -277,6 +309,10 @@
     const outerHandle   = document.getElementById('outerHandle');
     const innerHandle   = document.getElementById('innerHandle');
     const deliveryMarker= document.getElementById('deliveryMarker');
+    
+    // Get references to single bookmark marker and name text
+    const bookmarkMarker = document.getElementById('bookmarkMarker');
+    const bookmarkNameText = document.getElementById('bookmarkNameText');
 
     const dateInput  = document.getElementById('dateInput');
     const dateLabel  = document.getElementById('dateLabel');
@@ -291,18 +327,27 @@
     const copyBtn    = document.getElementById('copyBtn');
     const copyStatus = document.getElementById('copyStatus');
 
+    // Get references to new bookmark elements
+    const bookmarkDateInput = document.getElementById('bookmarkDateInput');
+    const bookmarkNameInput = document.getElementById('bookmarkNameInput');
+    const saveBookmarkBtn = document.getElementById('saveBookmarkBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const bookmarkStatus = document.getElementById('bookmarkStatus');
+
+    // State variables
+    let reverse = false;
+    let weeks = 0;
+    let currentDate = todayInTZ();
+    let savedBookmark = null; // Single bookmark state
+
     // Utilities
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-
     function pad(n) { return n.toString().padStart(2,'0'); }
-
     function isLeap(y) { return new Date(y, 1, 29).getMonth() === 1; }
-
     function daysInYear(y) { return isLeap(y) ? 366 : 365; }
 
-    // NEW: Helper function for date ordinal suffix (1st, 2nd, etc.)
     function getOrdinalSuffix(day) {
-        if (day > 3 && day < 21) return 'th'; // for 11th, 12th, 13th
+        if (day > 3 && day < 21) return 'th';
         switch (day % 10) {
             case 1: return 'st';
             case 2: return 'nd';
@@ -311,7 +356,6 @@
         }
     }
 
-    // NEW: Formats date to UK style for display (e.g., 19th Aug 2025)
     function fmtDateUK(d) {
       const day = d.getDate();
       const month = d.toLocaleString('en-GB', { month: 'short' });
@@ -320,7 +364,6 @@
       return `${day}${suffix} ${month} ${year}`;
     }
 
-    // RENAMED: Formats date to ISO style for the <input type="date"> element
     function fmtDateISO(d) {
       const y = d.getFullYear();
       const m = pad(d.getMonth()+1);
@@ -330,11 +373,10 @@
 
     function parseISODate(iso) {
       const [y,m,d] = iso.split('-').map(Number);
-      return new Date(y, m-1, d, 12, 0, 0, 0); // noon local to avoid edge cases
+      return new Date(y, m-1, d, 12, 0, 0, 0);
     }
 
     function todayInTZ() {
-      // Get current date in Asia/Kuala_Lumpur using the parts API
       const now = new Date();
       const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
       const y = Number(parts.find(p=>p.type==='year').value);
@@ -346,7 +388,7 @@
     function dayOfYear(date) {
       const start = new Date(date.getFullYear(), 0, 1, 12, 0, 0, 0);
       const diff = (date - start);
-      return Math.floor(diff / 86400000) + 1; // 1..365/366
+      return Math.floor(diff / 86400000) + 1;
     }
 
     function dateFromDoy(year, doy) {
@@ -361,16 +403,16 @@
 
     function angleFromDoy(doy, year) {
       const total = daysInYear(year);
-      const frac = (doy - 1) / total; // 0..(n-1)/n
-      return frac * 360 - 90; // -90 starts at 12 o'clock
+      const frac = (doy - 1) / total;
+      return frac * 360 - 90;
     }
 
     function doyFromAngle(angle, year) {
       const total = daysInYear(year);
-      const a = (angle + 90) % 360; // 0..360
-      const norm = (a < 0 ? a + 360 : a) / 360; // 0..1
-      let doy = Math.round(norm * total) + 1; // 1..(total+1)
-      if (doy > total) doy = 1; // wrap
+      const a = (angle + 90) % 360;
+      const norm = (a < 0 ? a + 360 : a) / 360;
+      let doy = Math.round(norm * total) + 1;
+      if (doy > total) doy = 1;
       return doy;
     }
 
@@ -391,13 +433,12 @@
       monthLabels.innerHTML = '';
       quarterLabels.innerHTML = '';
       const total = daysInYear(year);
-
-      // Day ticks
+      
+      // Day ticks and labels
       for (let i=1; i<=total; i++) {
         const ang = angleFromDoy(i, year) * Math.PI/180;
-        const outer = 220, inner = 220-14; // tick length 14 default
-        let len = 10; // base small tick
-        // Stronger ticks on 1st and every 5th day
+        const outer = 220, inner = 220-14;
+        let len = 10;
         const date = dateFromDoy(year, i);
         const day = date.getDate();
         if (day === 1) len = 18; else if (day % 5 === 0) len = 14;
@@ -413,8 +454,8 @@
         line.setAttribute('stroke-width', day===1? '2' : '1.2');
         calendarTicks.appendChild(line);
       }
-
-      // Month labels at their mid angles; show native month names using locale
+      
+      // Month and Quarter labels/backgrounds
       const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'long' });
       for (let m=0; m<12; m++) {
         const start = new Date(year, m, 1, 12, 0, 0, 0);
@@ -424,7 +465,7 @@
         const midDoy   = Math.round((startDoy + endDoy)/2);
         const angDeg   = angleFromDoy(midDoy, year);
         const ang      = angDeg * Math.PI/180;
-        const r = 242; // outside the track
+        const r = 242;
         const x = Math.cos(ang) * r;
         const y = Math.sin(ang) * r;
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
@@ -437,33 +478,23 @@
         text.textContent = monthFmt.format(start);
         monthLabels.appendChild(text);
       }
-
-      // Quarter backgrounds and labels
       const quarters = [
-        { name: 'Q1', startMonth: 0, endMonth: 2, color: 'rgba(70, 199, 255, 0.15)' }, // Jan, Feb, Mar - light blue
-        { name: 'Q2', startMonth: 3, endMonth: 5, color: 'rgba(178, 151, 255, 0.15)' }, // Apr, May, Jun - light purple
-        { name: 'Q3', startMonth: 6, endMonth: 8, color: 'rgba(147, 233, 127, 0.15)' }, // Jul, Aug, Sep - light green
-        { name: 'Q4', startMonth: 9, endMonth: 11, color: 'rgba(255, 159, 67, 0.15)' }  // Oct, Nov, Dec - light orange
+        { name: 'Q1', startMonth: 0, endMonth: 2, color: 'rgba(70, 199, 255, 0.15)' },
+        { name: 'Q2', startMonth: 3, endMonth: 5, color: 'rgba(178, 151, 255, 0.15)' },
+        { name: 'Q3', startMonth: 6, endMonth: 8, color: 'rgba(147, 233, 127, 0.15)' },
+        { name: 'Q4', startMonth: 9, endMonth: 11, color: 'rgba(255, 159, 67, 0.15)' }
       ];
-
       quarters.forEach(q => {
-        // Use exact quarter boundaries: first day of start month to last day of end month
         const start = new Date(year, q.startMonth, 1, 12, 0, 0, 0);
-        const end   = new Date(year, q.endMonth + 1, 0, 12, 0, 0, 0); // Last day of end month
+        const end   = new Date(year, q.endMonth + 1, 0, 12, 0, 0, 0);
         const startDoy = dayOfYear(start);
         const endDoy   = dayOfYear(end);
-        
-        // Calculate start and end angles for the quarter arc
         const startAngDeg = angleFromDoy(startDoy, year);
         const endAngDeg = angleFromDoy(endDoy, year);
-        
-        // Create quarter background arc (donut segment)
-        const outerRadius = 206; // Just inside the outer track
-        const innerRadius = 170; // Closer to center
-        
+        const outerRadius = 206;
+        const innerRadius = 170;
         const startAngRad = startAngDeg * Math.PI / 180;
         const endAngRad = endAngDeg * Math.PI / 180;
-        
         const x1 = Math.cos(startAngRad) * outerRadius;
         const y1 = Math.sin(startAngRad) * outerRadius;
         const x2 = Math.cos(endAngRad) * outerRadius;
@@ -472,34 +503,27 @@
         const y3 = Math.sin(endAngRad) * innerRadius;
         const x4 = Math.cos(startAngRad) * innerRadius;
         const y4 = Math.sin(startAngRad) * innerRadius;
-        
-        // Determine if we need large arc flag
         let angleDiff = endAngDeg - startAngDeg;
         if (angleDiff < 0) angleDiff += 360;
         const largeArcFlag = angleDiff > 180 ? 1 : 0;
-        
         const pathData = [
-          `M ${x1.toFixed(2)} ${y1.toFixed(2)}`, // Move to start of outer arc
-          `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`, // Outer arc
-          `L ${x3.toFixed(2)} ${y3.toFixed(2)}`, // Line to inner arc
-          `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}`, // Inner arc (reverse)
-          'Z' // Close path
+          `M ${x1.toFixed(2)} ${y1.toFixed(2)}`,
+          `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
+          `L ${x3.toFixed(2)} ${y3.toFixed(2)}`,
+          `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}`,
+          'Z'
         ].join(' ');
-        
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', pathData);
         path.setAttribute('fill', q.color);
         path.setAttribute('stroke', 'none');
         quarterBackgrounds.appendChild(path);
-        
-        // Position quarter label at the center of the quarter
         const midDoy = Math.round((startDoy + endDoy) / 2);
         const angDeg = angleFromDoy(midDoy, year);
         const ang = angDeg * Math.PI / 180;
-        const labelRadius = 188; // Positioned between inner and outer radius of the background
+        const labelRadius = 188;
         const x = Math.cos(ang) * labelRadius;
         const y = Math.sin(ang) * labelRadius;
-        
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', x.toFixed(2));
         text.setAttribute('y', y.toFixed(2));
@@ -552,11 +576,109 @@
       const y = Math.sin(a) * r;
       el.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
     }
+    
+    // Bookmark utility
+    const BOOKMARK_KEY = 'lead-time-calculator-bookmark';
+    
+    function loadBookmark() {
+      const savedData = localStorage.getItem(BOOKMARK_KEY);
+      if (savedData) {
+        savedBookmark = JSON.parse(savedData);
+        // Also update the input fields when loading
+        bookmarkDateInput.value = savedBookmark.date.split('T')[0];
+        bookmarkNameInput.value = savedBookmark.name;
+        return true;
+      }
+      savedBookmark = null;
+      return false;
+    }
 
-    // State
-    let reverse = false; // false: forward (order + weeks => delivery). true: reverse (target - weeks => order)
-    let weeks = 0;
-    let currentDate = todayInTZ(); // order date in forward, target date in reverse
+    function saveBookmark() {
+      if (!bookmarkDateInput.value) {
+        showBookmarkStatus('Please select a date to save.', 2000);
+        return;
+      }
+      const dataToSave = {
+        date: parseISODate(bookmarkDateInput.value).toISOString(),
+        weeks: weeks, // Save the current weeks value from the main input
+        name: bookmarkNameInput.value || 'Unnamed'
+      };
+      localStorage.setItem(BOOKMARK_KEY, JSON.stringify(dataToSave));
+      savedBookmark = dataToSave;
+      updateUI(); // Call updateUI immediately to show the change
+      showBookmarkStatus(`Bookmark "${dataToSave.name}" saved!`, 2000);
+    }
+
+    function clearBookmark() {
+      localStorage.removeItem(BOOKMARK_KEY);
+      savedBookmark = null;
+      bookmarkDateInput.value = '';
+      bookmarkNameInput.value = '';
+      updateUI(); // Call updateUI to remove the marker
+      showBookmarkStatus('Bookmark cleared.', 2000);
+    }
+
+    function showBookmarkStatus(message, duration) {
+      bookmarkStatus.textContent = message;
+      if (duration) {
+        setTimeout(() => {
+          bookmarkStatus.textContent = '';
+        }, duration);
+      }
+    }
+
+    function updateUI(redrawCalendarYear = false) {
+      // Sync inputs
+      dateLabel.textContent = reverse ? 'Target date' : 'Order date';
+      dateInput.value = fmtDateISO(currentDate);
+      weeksInput.value = weeks;
+      weeksRange.value = weeks;
+      reverseToggle.checked = reverse;
+
+      // Calendar ring year uses the year of the selected date
+      const y = currentDate.getFullYear();
+      if (redrawCalendarYear) renderCalendarRing(y);
+
+      // Position handles
+      const doy = dayOfYear(currentDate);
+      const angDate = angleFromDoy(doy, y);
+      placeAtPolar(outerHandle, outerR, angDate);
+      outerHandle.setAttribute('aria-valuenow', String(doy));
+      outerHandle.setAttribute('aria-valuetext', `${fmtDateUK(currentDate)}`);
+
+      const angWeeks = angleFromWeeks(weeks);
+      placeAtPolar(innerHandle, innerR, angWeeks);
+      innerHandle.setAttribute('aria-valuenow', String(weeks));
+      innerHandle.setAttribute('aria-valuetext', `${weeks} weeks`);
+
+      // Result marker
+      const { order, delivery } = computeResult();
+      const resultDate = reverse ? order : delivery;
+      const resultYear = currentDate.getFullYear();
+      const resultDoy = dayOfYear(resultDate.getFullYear() === resultYear ? resultDate : new Date(resultYear, resultDate.getMonth(), resultDate.getDate(), 12));
+      const angRes = angleFromDoy(resultDoy, resultYear);
+      placeAtPolar(deliveryMarker, outerR, angRes);
+
+      // NEW: Position and display single bookmark marker
+      if (savedBookmark) {
+        const bookmarkedDate = new Date(savedBookmark.date);
+        const bookmarkedDoy = dayOfYear(bookmarkedDate.getFullYear() === y ? bookmarkedDate : new Date(y, bookmarkedDate.getMonth(), bookmarkedDate.getDate(), 12));
+        const angBookmark = angleFromDoy(bookmarkedDoy, y);
+        placeAtPolar(bookmarkMarker, outerR, angBookmark);
+        bookmarkMarker.style.display = 'block';
+        bookmarkNameText.textContent = savedBookmark.name;
+      } else {
+        bookmarkMarker.style.display = 'none';
+      }
+
+      // Result text
+      const daysTotal = weeks * 7;
+      const resText = !reverse
+        ? `<strong>Order</strong> ${fmtDateUK(order)} + <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>${fmtDateUK(delivery)}</strong> <small>(${daysTotal} days)</small>`
+        : `<strong>Target</strong> ${fmtDateUK(delivery)} − <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>Order ${fmtDateUK(order)}</strong> <small>(${daysTotal} days)</small>`;
+      resultBox.innerHTML = resText;
+      liveRegion.textContent = resultBox.textContent;
+    }
 
     // Derived
     function computeResult() {
@@ -572,55 +694,13 @@
       }
     }
 
-    function updateUI(redrawCalendarYear = false) {
-      // Sync inputs
-      dateLabel.textContent = reverse ? 'Target date' : 'Order date';
-      dateInput.value = fmtDateISO(currentDate); // UPDATED: Use ISO format for input
-      weeksInput.value = weeks;
-      weeksRange.value = weeks;
-      reverseToggle.checked = reverse;
-
-      // Calendar ring year uses the year of the selected date
-      const y = currentDate.getFullYear();
-      if (redrawCalendarYear) renderCalendarRing(y);
-
-      // Position handles
-      const doy = dayOfYear(currentDate);
-      const angDate = angleFromDoy(doy, y);
-      placeAtPolar(outerHandle, outerR, angDate);
-      outerHandle.setAttribute('aria-valuenow', String(doy));
-      outerHandle.setAttribute('aria-valuetext', `${fmtDateUK(currentDate)}`); // UPDATED: Use UK format for accessibility text
-
-      const angWeeks = angleFromWeeks(weeks);
-      placeAtPolar(innerHandle, innerR, angWeeks);
-      innerHandle.setAttribute('aria-valuenow', String(weeks));
-      innerHandle.setAttribute('aria-valuetext', `${weeks} weeks`);
-
-      // Result marker
-      const { order, delivery } = computeResult();
-      const resultDate = reverse ? order : delivery;
-      const resultYear = currentDate.getFullYear();
-      const resultDoy = dayOfYear(resultDate.getFullYear() === resultYear ? resultDate : new Date(resultYear, resultDate.getMonth(), resultDate.getDate(), 12));
-      // Place marker at same ring based on the current ring's year geometry
-      const angRes = angleFromDoy(resultDoy, resultYear);
-      placeAtPolar(deliveryMarker, outerR, angRes);
-
-      // Result text
-      const daysTotal = weeks * 7;
-      // UPDATED: Use UK format in result text
-      const resText = !reverse
-        ? `<strong>Order</strong> ${fmtDateUK(order)} + <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>${fmtDateUK(delivery)}</strong> <small>(${daysTotal} days)</small>`
-        : `<strong>Target</strong> ${fmtDateUK(delivery)} − <strong>${weeks}</strong> week${weeks!==1?'s':''} → <strong>Order ${fmtDateUK(order)}</strong> <small>(${daysTotal} days)</small>`;
-      resultBox.innerHTML = resText;
-      liveRegion.textContent = resultBox.textContent;
-    }
-
     // Init
     function init() {
       renderWeeksRing();
       const today = todayInTZ();
       currentDate = today;
       renderCalendarRing(today.getFullYear());
+      loadBookmark();
       updateUI();
     }
 
@@ -675,21 +755,24 @@
         setTimeout(()=>copyStatus.textContent='', 1500);
       }
     });
+    
+    // NEW: Listen for new bookmark button clicks
+    saveBookmarkBtn.addEventListener('click', saveBookmark);
+    clearBtn.addEventListener('click', clearBookmark);
 
     // Pointer interactions
-    let dragging = null; // 'outer' | 'inner'
-
+    let dragging = null;
     function svgPoint(evt) {
       const pt = svg.createSVGPoint();
       const ev = evt.touches ? evt.touches[0] : evt;
       pt.x = ev.clientX; pt.y = ev.clientY;
       const ctm = svg.getScreenCTM().inverse();
       const p = pt.matrixTransform(ctm);
-      return p; // in SVG coordinates
+      return p;
     }
 
     function angleFromPoint(p) {
-      return Math.atan2(p.y, p.x) * 180/Math.PI; // -180..180, 0 at +x (3 o'clock)
+      return Math.atan2(p.y, p.x) * 180/Math.PI;
     }
 
     function onPointerDown(which) {
@@ -698,14 +781,14 @@
         evt.preventDefault();
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp, { once: true });
-        onPointerMove(evt); // update immediately
+        onPointerMove(evt);
       };
     }
 
     function onPointerMove(evt) {
       if (!dragging) return;
       const p = svgPoint(evt);
-      let ang = angleFromPoint(p); // -180..180
+      let ang = angleFromPoint(p);
       if (dragging === 'outer') {
         const newDoy = doyFromAngle(ang, currentDate.getFullYear());
         const d = dateFromDoy(currentDate.getFullYear(), newDoy);
@@ -726,8 +809,6 @@
 
     outerHandle.addEventListener('pointerdown', onPointerDown('outer'));
     innerHandle.addEventListener('pointerdown', onPointerDown('inner'));
-
-    // Make the tracks clickable/snappable
     document.getElementById('outerTrack').addEventListener('pointerdown', onPointerDown('outer'));
     document.getElementById('innerTrack').addEventListener('pointerdown', onPointerDown('inner'));
 
@@ -777,8 +858,6 @@
 
     init();
 
-    // Example check in console:
-    // 10 Aug 2025 + 10 weeks should be 19 Oct 2025
     console.log('Validation example: 10th Aug 2025 + 10 weeks =', fmtDateUK(addDays(new Date(2025,7,10,12), 70)));
   })();
   </script>
