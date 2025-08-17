@@ -13,13 +13,13 @@
       --accent1: #46c7ff;  /* order handle */
       --accent2: #b297ff;  /* delivery marker */
       --accent3: #93e97f;  /* weeks handle */
-      --bookmark1: #ff9f6b; /* new bookmark color 1 (orange) */
       --ring: #1d2733;
       --tick: #394657;
       --tick-strong: #5b6f86;
       --shadow: 0 10px 30px rgba(0,0,0,.35);
       --radius: 16px;
       --focus: 2px solid #63b3ff;
+      --bookmark-color: #ff8c00; /* Bright orange for the bookmark */
     }
 
     @media (prefers-color-scheme: light) {
@@ -32,7 +32,7 @@
         --tick: #c8d2e1;
         --tick-strong: #8fa2bb;
         --shadow: 0 8px 24px rgba(17,24,39,.12);
-        --bookmark1: #ff7841;
+        --bookmark-color: #ff8c00; /* Bright orange for the bookmark */
       }
     }
 
@@ -49,9 +49,18 @@
       max-width: 1100px;
       margin: 32px auto;
       padding: 0 16px 40px;
-      display: grid;
-      grid-template-columns: 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 22px;
+    }
+
+    /* Styles for the new headings */
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      text-align: center;
+      color: var(--text);
     }
 
     header h1 {
@@ -64,20 +73,13 @@
 
     .grid {
       display: grid;
-      /* Define the two-column layout: a left column for the dial and the rest for the controls. */
-      grid-template-columns: minmax(280px, 450px) 1fr;
+      grid-template-columns: 1fr;
       gap: 22px;
-      align-items: start;
     }
 
-    @media (max-width: 980px) {
+    @media (min-width: 980px) {
       .grid { 
-        grid-template-columns: 1fr; 
-      }
-      /* New fix: add a margin to the bottom of the first card
-         when the layout wraps to a single column. */
-      .grid .dial-wrap {
-        margin-bottom: 22px;
+        grid-template-columns: 1fr 1fr; 
       }
     }
 
@@ -89,31 +91,14 @@
       padding: 18px;
     }
 
-    /* Style the h2 headings inside the cards */
-    .card h2 {
-      font-size: 1.5rem; /* Set a consistent size */
-      text-align: center; /* Center the heading text */
-      margin-top: 0;
-      margin-bottom: 1rem;
-    }
-
     .card.controls {
-      max-width: 400px;
-      /* Add justify-self to push the card to the right side of its grid cell. */
-      justify-self: end;
+      max-width: 480px;
+      justify-self: center;
     }
 
-    .dial-wrap { 
-      display: grid; 
-      place-items: center; 
-      width: 100%;
-      height: 100%;
-      min-height: 560px;
-    }
     .dial {
-      /* Adjusted the maximum width of the SVG from 560px to 450px */
-      width: min(92vw, 450px);
-      height: min(92vw, 450px);
+      width: min(92vw, 560px);
+      height: min(92vw, 560px);
       aspect-ratio: 1/1;
       display: block;
       margin: auto;
@@ -172,22 +157,26 @@
 
     /* Focus styles for keyboard users */
     .kb-focus:focus { outline: var(--focus); outline-offset: 4px; border-radius: 999px; }
+
+    /* New styles for bookmark section */
+    .controls h3 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; }
+    .bookmark-row.save { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: flex-end; }
+    .bookmark-row.load { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
+    .bookmark-row button { flex-grow: 0; }
+    .bookmark-row .input-group { flex-grow: 1; }
+    .bookmark-row button.load { background: var(--accent1); border-color: transparent; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <h1>Circular Lead‑Time Calculator</h1>
-      <p>Order date + whole‑week lead time → delivery date. Drag either ring, or use the inputs below. (Sunday reference; MYT)</p>
-    </header>
-
+    <h1>Circular Lead‑Time Calculator</h1>
+    <p>Order date + whole‑week lead time → delivery date. Drag either ring, or use the inputs below. (Sunday reference; MYT)</p>
     <div class="grid">
-      <div class="card dial-wrap">
+      <div class="card">
         <h2>Circle Calendar</h2>
         <!-- Accessible live region for result updates -->
         <div id="live" class="sr-only" aria-live="polite"></div>
 
-        <!-- The SVG `viewBox` is updated to center the content -->
         <svg id="dial" class="dial" viewBox="-300 -300 600 600" role="application" aria-label="Circular date and weeks dial">
           <!-- Rings background -->
           <defs>
@@ -213,11 +202,11 @@
             <circle r="6" fill="var(--accent2)" />
             <text y="-14" text-anchor="middle" fill="var(--accent2)" font-size="12">Result</text>
           </g>
-
-          <!-- NEW: Single Bookmark marker -->
-          <g id="bookmarkMarker" filter="url(#glow1)" style="display: none;">
-            <circle r="6" fill="var(--bookmark1)" />
-            <text y="-14" text-anchor="middle" fill="var(--bookmark1)" font-size="12" id="bookmarkNameText">Saved</text>
+          
+          <!-- Bookmark marker -->
+          <g id="bookmarkMarker" visibility="hidden">
+            <circle r="8" fill="var(--bookmark-color)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
+            <text id="bookmarkLabel" y="14" text-anchor="middle" fill="var(--bookmark-color)" font-size="12"></text>
           </g>
 
           <!-- Outer handle: order/target date -->
@@ -246,7 +235,7 @@
         </svg>
       </div>
 
-      <div class="card controls" id="controlCard">
+      <div class="card controls">
         <h2>Control Panel</h2>
         <div class="row">
           <div>
@@ -277,26 +266,26 @@
           <button class="btn secondary" id="copyBtn" type="button">Copy result</button>
           <small id="copyStatus" aria-live="polite"></small>
         </div>
-
-        <!-- NEW: Updated Single Bookmark section with named input -->
-        <div class="result" id="bookmarkSection">
-          <h4>Bookmark</h4>
-          <div class="row">
-            <div>
-              <label for="bookmarkDateInput">Bookmark date</label>
-              <input id="bookmarkDateInput" type="date" />
+        
+        <!-- Bookmark section -->
+        <hr style="border-color: rgba(255,255,255,.1); margin: 24px 0 12px;" />
+        <h3 style="text-align: center;">Bookmark Date</h3>
+        <div class="bookmark-row save">
+            <div class="input-group">
+                <label for="bookmarkNameInput">Bookmark Name</label>
+                <input id="bookmarkNameInput" type="text" placeholder="e.g., Project A Deadline" />
             </div>
-            <div>
-              <label for="bookmarkNameInput">Bookmark name</label>
-              <input id="bookmarkNameInput" type="text" placeholder="Enter name" />
+            <div class="input-group">
+                <label for="bookmarkDateInput">Date</label>
+                <input id="bookmarkDateInput" type="date" />
             </div>
-          </div>
-          <div class="btns">
-            <button class="btn" id="saveBookmarkBtn" type="button">Save Bookmark</button>
-            <button class="btn secondary" id="clearBtn" type="button">Clear Bookmark</button>
-          </div>
-          <small id="bookmarkStatus" style="display:block; margin-top: 8px; color: var(--muted);"></small>
+            <button class="btn secondary" id="saveBookmarkBtn" type="button">Save</button>
         </div>
+        <div class="bookmark-row load" style="margin-top: 10px;">
+            <button class="btn secondary" id="loadBookmarkBtn" type="button">Load Bookmark</button>
+            <button class="btn secondary" id="clearBookmarkBtn" type="button">Clear Bookmark</button>
+        </div>
+
       </div>
     </div>
   </div>
@@ -319,10 +308,8 @@
     const outerHandle   = document.getElementById('outerHandle');
     const innerHandle   = document.getElementById('innerHandle');
     const deliveryMarker= document.getElementById('deliveryMarker');
-    
-    // Get references to single bookmark marker and name text
     const bookmarkMarker = document.getElementById('bookmarkMarker');
-    const bookmarkNameText = document.getElementById('bookmarkNameText');
+    const bookmarkLabel = document.getElementById('bookmarkLabel');
 
     const dateInput  = document.getElementById('dateInput');
     const dateLabel  = document.getElementById('dateLabel');
@@ -337,18 +324,18 @@
     const copyBtn    = document.getElementById('copyBtn');
     const copyStatus = document.getElementById('copyStatus');
 
-    // Get references to new bookmark elements
-    const bookmarkDateInput = document.getElementById('bookmarkDateInput');
+    // Bookmark elements
     const bookmarkNameInput = document.getElementById('bookmarkNameInput');
+    const bookmarkDateInput = document.getElementById('bookmarkDateInput');
     const saveBookmarkBtn = document.getElementById('saveBookmarkBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const bookmarkStatus = document.getElementById('bookmarkStatus');
+    const loadBookmarkBtn = document.getElementById('loadBookmarkBtn');
+    const clearBookmarkBtn = document.getElementById('clearBookmarkBtn');
 
     // State variables
     let reverse = false;
     let weeks = 0;
     let currentDate = todayInTZ();
-    let savedBookmark = null; // Single bookmark state
+    let bookmark = null;
 
     // Utilities
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
@@ -586,56 +573,6 @@
       const y = Math.sin(a) * r;
       el.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
     }
-    
-    // Bookmark utility
-    const BOOKMARK_KEY = 'lead-time-calculator-bookmark';
-    
-    function loadBookmark() {
-      const savedData = localStorage.getItem(BOOKMARK_KEY);
-      if (savedData) {
-        savedBookmark = JSON.parse(savedData);
-        // Also update the input fields when loading
-        bookmarkDateInput.value = savedBookmark.date.split('T')[0];
-        bookmarkNameInput.value = savedBookmark.name;
-        return true;
-      }
-      savedBookmark = null;
-      return false;
-    }
-
-    function saveBookmark() {
-      if (!bookmarkDateInput.value) {
-        showBookmarkStatus('Please select a date to save.', 2000);
-        return;
-      }
-      const dataToSave = {
-        date: parseISODate(bookmarkDateInput.value).toISOString(),
-        weeks: weeks, // Save the current weeks value from the main input
-        name: bookmarkNameInput.value || 'Unnamed'
-      };
-      localStorage.setItem(BOOKMARK_KEY, JSON.stringify(dataToSave));
-      savedBookmark = dataToSave;
-      updateUI(); // Call updateUI immediately to show the change
-      showBookmarkStatus(`Bookmark "${dataToSave.name}" saved!`, 2000);
-    }
-
-    function clearBookmark() {
-      localStorage.removeItem(BOOKMARK_KEY);
-      savedBookmark = null;
-      bookmarkDateInput.value = '';
-      bookmarkNameInput.value = '';
-      updateUI(); // Call updateUI to remove the marker
-      showBookmarkStatus('Bookmark cleared.', 2000);
-    }
-
-    function showBookmarkStatus(message, duration) {
-      bookmarkStatus.textContent = message;
-      if (duration) {
-        setTimeout(() => {
-          bookmarkStatus.textContent = '';
-        }, duration);
-      }
-    }
 
     function updateUI(redrawCalendarYear = false) {
       // Sync inputs
@@ -669,17 +606,18 @@
       const angRes = angleFromDoy(resultDoy, resultYear);
       placeAtPolar(deliveryMarker, outerR, angRes);
 
-      // NEW: Position and display single bookmark marker
-      if (savedBookmark) {
-        const bookmarkedDate = new Date(savedBookmark.date);
-        const bookmarkedDoy = dayOfYear(bookmarkedDate.getFullYear() === y ? bookmarkedDate : new Date(y, bookmarkedDate.getMonth(), bookmarkedDate.getDate(), 12));
-        const angBookmark = angleFromDoy(bookmarkedDoy, y);
-        placeAtPolar(bookmarkMarker, outerR, angBookmark);
-        bookmarkMarker.style.display = 'block';
-        bookmarkNameText.textContent = savedBookmark.name;
+      // Bookmark marker
+      if (bookmark) {
+          const bookmarkDoy = dayOfYear(bookmark.date);
+          const bookmarkYear = bookmark.date.getFullYear();
+          const angBookmark = angleFromDoy(bookmarkDoy, bookmarkYear);
+          placeAtPolar(bookmarkMarker, outerR, angBookmark);
+          bookmarkLabel.textContent = bookmark.name;
+          bookmarkMarker.setAttribute('visibility', 'visible');
       } else {
-        bookmarkMarker.style.display = 'none';
+          bookmarkMarker.setAttribute('visibility', 'hidden');
       }
+
 
       // Result text
       const daysTotal = weeks * 7;
@@ -710,7 +648,6 @@
       const today = todayInTZ();
       currentDate = today;
       renderCalendarRing(today.getFullYear());
-      loadBookmark();
       updateUI();
     }
 
@@ -766,9 +703,31 @@
       }
     });
     
-    // NEW: Listen for new bookmark button clicks
-    saveBookmarkBtn.addEventListener('click', saveBookmark);
-    clearBtn.addEventListener('click', clearBookmark);
+    // Bookmark event listeners
+    saveBookmarkBtn.addEventListener('click', () => {
+        const name = bookmarkNameInput.value;
+        const dateString = bookmarkDateInput.value;
+        if (name && dateString) {
+            const d = parseISODate(dateString);
+            bookmark = { name, date: d };
+            updateUI(true);
+        } else {
+            console.log("Please enter both a name and a date.");
+        }
+    });
+
+    loadBookmarkBtn.addEventListener('click', () => {
+        if (bookmark) {
+            const oldYear = currentDate.getFullYear();
+            currentDate = bookmark.date;
+            updateUI(oldYear !== currentDate.getFullYear());
+        }
+    });
+
+    clearBookmarkBtn.addEventListener('click', () => {
+        bookmark = null;
+        updateUI(true);
+    });
 
     // Pointer interactions
     let dragging = null;
