@@ -710,15 +710,22 @@
       updateUI(oldYear !== currentDate.getFullYear());
     });
 
-    copyBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(resultBox.textContent.trim());
-        copyStatus.textContent = 'Copied!';
-        setTimeout(()=>copyStatus.textContent='', 1500);
-      } catch (e) {
-        copyStatus.textContent = 'Copy failed';
-        setTimeout(()=>copyStatus.textContent='', 1500);
-      }
+    copyBtn.addEventListener('click', () => {
+        // Create a temporary textarea element to copy the text from
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = resultBox.textContent.trim();
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+
+        try {
+            const success = document.execCommand('copy');
+            copyStatus.textContent = success ? 'Copied!' : 'Copy failed';
+        } catch (err) {
+            copyStatus.textContent = 'Copy failed';
+        }
+
+        document.body.removeChild(tempTextarea);
+        setTimeout(() => copyStatus.textContent = '', 1500);
     });
     
     // Bookmark event listeners
