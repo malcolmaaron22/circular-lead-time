@@ -1,859 +1,529 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Circular Lead‑Time Calculator</title>
-  <style>
-    :root {
-      --bg: #0b0f14;
-      --panel: #0f1720;
-      --muted: #7c8aa5;
-      --text: #e6eefc;
-      --accent1: #46c7ff;  /* order handle */
-      --accent2: #b297ff;  /* delivery marker */
-      --accent3: #93e97f;  /* weeks handle */
-      --ring: #1d2733;
-      --tick: #394657;
-      --tick-strong: #5b6f86;
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
-      --radius: 16px;
-      --focus: 2px solid #63b3ff;
-      --bookmark-color: #ff8c00; /* Bright orange for the bookmark */
-    }
-
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg: #f6f8fb;
-        --panel: #ffffff;
-        --muted: #5b6f86;
-        --text: #0e1726;
-        --ring: #e9eef5;
-        --tick: #c8d2e1;
-        --tick-strong: #8fa2bb;
-        --shadow: 0 8px 24px rgba(17,24,39,.12);
-        --bookmark-color: #ff8c00; /* Bright orange for the bookmark */
-      }
-    }
-
-    html, body {
-      height: 100%;
-      background: radial-gradient(1200px 800px at 30% -10%, #131a22 0%, var(--bg) 60%);
-      color: var(--text);
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
-      letter-spacing: .2px;
-    }
-
-    .wrap {
-      max-width: 1100px;
-      margin: 32px auto;
-      padding: 0 16px 40px;
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-    }
-
-    /* Styles for the new headings */
-    h2 {
-      font-size: 20px;
-      font-weight: 700;
-      margin: 0 0 12px;
-      text-align: center;
-      color: var(--text);
-    }
-
-    header h1 {
-      margin: 0 0 6px;
-      font-size: 24px;
-      font-weight: 700;
-    }
-
-    header p { color: var(--muted); margin: 0; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 22px;
-    }
-
-    @media (min-width: 980px) {
-      .grid { 
-        grid-template-columns: 1fr 1fr; 
-      }
-    }
-
-    .card {
-      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)) , var(--panel);
-      border: 1px solid rgba(255,255,255,.06);
-      box-shadow: var(--shadow);
-      border-radius: var(--radius);
-      padding: 18px;
-    }
-
-    .card.controls {
-      max-width: 480px;
-      justify-self: center;
-    }
-
-    .dial {
-      width: min(92vw, 560px);
-      height: min(92vw, 560px);
-      aspect-ratio: 1/1;
-      display: block;
-      margin: auto;
-    }
-
-    .controls label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .row + .row { margin-top: 12px; }
-
-    .controls input[type="date"],
-    .controls input[type="number"],
-    .controls input[type="range"],
-    .controls button,
-    .controls .switch,
-    .controls input[type="text"] {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid rgba(255,255,255,.06);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 12px;
-      box-sizing: border-box;
-    }
-
-    /* Update slider color to green */
-    .controls input[type="range"] {
-      padding: 0;
-      height: 34px;
-      accent-color: var(--accent3);
-    }
-
-    .controls .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-    .controls .switch input { width: auto; accent-color: var(--accent2); }
-
-    .controls .btns { display: flex; gap: 10px; margin-top: 12px; }
-    .controls .btn {
-      background: linear-gradient(180deg, rgba(146,186,255,.18), rgba(146,186,255,.06));
-      border: 1px solid rgba(146,186,255,.25);
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: 12px;
-      cursor: pointer;
-    }
-
-    .controls .btn.secondary {
-      background: var(--bg);
-      border: 1px solid rgba(255,255,255,.06);
-    }
-    
-    .bookmark-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 14px; }
-    .bookmark-row + .bookmark-row { margin-top: 8px; }
-
-    .result { margin-top: 12px; padding: 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 12px; }
-    .result strong { font-weight: 700; }
-    .result small { color: var(--muted); }
-    .result .date-part { color: var(--accent1); }
-    .result .weeks-part { color: var(--accent3); }
-    .result .delivery-part { color: var(--accent2); }
-    .result .bookmark-part { color: var(--bookmark-color); }
-
-
-    .copy-row { display:flex; gap:8px; align-items:center; margin-top:8px; }
-
-    .sr-only { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip: rect(0,0,0,0); white-space: nowrap; border:0; }
-
-    /* Focus styles for keyboard users */
-    .kb-focus:focus { outline: var(--focus); outline-offset: 4px; border-radius: 999px; }
-
-    /* New styles for bookmark section */
-    .controls h3 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; }
-    .bookmark-row.save { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: flex-end; }
-    .bookmark-row.load { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
-    .bookmark-row button { flex-grow: 0; }
-    .bookmark-row .input-group { flex-grow: 1; }
-    .bookmark-row button.load { background: var(--accent1); border-color: transparent; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>Circular Lead‑Time Calculator</h1>
-    <p>Order date + whole‑week lead time → delivery date. Drag either ring, or use the inputs below. (Sunday reference; MYT)</p>
-    <div class="grid">
-      <div class="card">
-        <h2>Circle Calendar</h2>
-        <!-- Accessible live region for result updates -->
-        <div id="live" class="sr-only" aria-live="polite"></div>
-
-        <svg id="dial" class="dial" viewBox="-300 -300 600 600" role="application" aria-label="Circular date and weeks dial">
-          <!-- Rings background -->
-          <defs>
-            <filter id="glow1" x="-200%" y="-200%" width="400%" height="400%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          <!-- Outer calendar track -->
-          <circle id="outerTrack" cx="0" cy="0" r="220" fill="none" stroke="var(--ring)" stroke-width="28"/>
-          <!-- Tick marks will be injected here -->
-          <g id="calendarTicks"></g>
-          <g id="quarterBackgrounds"></g>
-          <g id="monthLabels"></g>
-          <g id="quarterLabels"></g>
-
-          <!-- Delivery marker (outer) -->
-          <g id="deliveryMarker" filter="url(#glow1)">
-            <circle r="6" fill="var(--accent2)" />
-            <text y="-14" text-anchor="middle" fill="var(--accent2)" font-size="12">Result</text>
-          </g>
-          
-          <!-- Bookmark marker -->
-          <g id="bookmarkMarker" visibility="hidden" filter="url(#glow1)">
-            <circle r="8" fill="var(--bookmark-color)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
-            <text id="bookmarkLabel" y="14" text-anchor="middle" fill="var(--bookmark-color)" font-size="12"></text>
-          </g>
-
-          <!-- Outer handle: order/target date -->
-          <g id="outerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Date pointer" aria-valuemin="1" aria-valuemax="366" aria-valuenow="1" aria-valuetext="" filter="url(#glow1)">
-            <circle r="10" fill="var(--accent1)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
-            <circle r="18" fill="transparent" stroke="var(--accent1)" stroke-opacity=".25" stroke-width="2" />
-            <text y="-14" text-anchor="middle" fill="var(--accent1)" font-size="12">Date</text>
-          </g>
-
-          <!-- Inner weeks track -->
-          <circle id="innerTrack" cx="0" cy="0" r="140" fill="none" stroke="var(--ring)" stroke-width="26"/>
-          <g id="weeksTicks"></g>
-
-          <!-- Inner handle: weeks -->
-          <g id="innerHandle" class="kb-focus" tabindex="0" role="slider" aria-label="Weeks pointer" aria-valuemin="0" aria-valuemax="52" aria-valuenow="0" aria-valuetext="0 weeks" filter="url(#glow1)">
-            <circle r="10" fill="var(--accent3)" stroke="white" stroke-opacity=".25" stroke-width="1.5" />
-            <circle r="18" fill="transparent" stroke="var(--accent3)" stroke-opacity=".25" stroke-width="2" />
-            <text y="-14" text-anchor="middle" fill="var(--accent3)" font-size="12">Weeks</text>
-          </g>
-
-          <!-- Center label -->
-          <g id="centerLabel" aria-hidden="true">
-            <circle r="90" fill="none" stroke="rgba(255,255,255,.06)" />
-            <text x="0" y="0" text-anchor="middle" dominant-baseline="middle" fill="var(--muted)" font-size="14">Number of Weeks</text>
-          </g>
-        </svg>
-      </div>
-
-      <div class="card controls">
-        <h2>Control Panel</h2>
-        <div class="row">
-          <div>
-            <label id="dateLabel" for="dateInput">Order date</label>
-            <input id="dateInput" type="date" aria-labelledby="dateLabel" />
-          </div>
-          <div>
-            <label for="weeksInput">Weeks</label>
-            <input id="weeksInput" type="number" min="0" max="52" step="1" value="0" />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="weeksRange">Weeks (slider)</label>
-            <input id="weeksRange" type="range" min="0" max="52" step="1" value="0" />
-          </div>
-          <label class="switch" for="reverseToggle">
-            <input id="reverseToggle" type="checkbox" /> Reverse mode (Target − Weeks → Order)
-          </label>
-        </div>
-        <div class="btns">
-          <button class="btn" id="todayBtn" type="button">Today</button>
-          <button class="btn" id="resetBtn" type="button">Reset</button>
-        </div>
-
-        <div class="result" id="resultBox" aria-live="polite"></div>
-        <div class="copy-row">
-          <button class="btn secondary" id="copyBtn" type="button">Copy result</button>
-          <small id="copyStatus" aria-live="polite"></small>
-        </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARE Utilization Planner</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
         
-        <!-- Bookmark section -->
-        <hr style="border-color: rgba(255,255,255,.1); margin: 24px 0 12px;" />
-        <h3 style="text-align: center;">Bookmark Date</h3>
-        <div class="bookmark-row save">
-            <div class="input-group">
-                <label for="bookmarkNameInput">Bookmark Name</label>
-                <input id="bookmarkNameInput" type="text" placeholder="e.g., Project A Deadline" />
-            </div>
-            <div class="input-group">
-                <label for="bookmarkDateInput">Date</label>
-                <input id="bookmarkDateInput" type="date" />
-            </div>
-            <button class="btn" id="saveBookmarkBtn" type="button">Save</button>
-        </div>
-        <div class="bookmark-row load" style="margin-top: 10px;">
-            <button class="btn" id="loadBookmarkBtn" type="button">Load Bookmark</button>
-            <button class="btn" id="clearBookmarkBtn" type="button">Clear Bookmark</button>
-        </div>
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #4F46E5; /* Indigo-600 */
+            cursor: pointer;
+            margin-top: -6px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #E5E7EB; /* Gray-200 */
+            border-radius: 2px;
+        }
 
-      </div>
+        input[type=range]:focus::-webkit-slider-thumb {
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+        }
+
+        /* Hide number arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-indigo-900">CARE Planner</h1>
+            <div class="text-right">
+                <p class="text-xs text-gray-500 uppercase font-semibold tracking-wide">Total Limit</p>
+                <p class="text-lg font-bold text-gray-900">RM 4,500.00</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 w-full">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+            
+            <!-- Left Column: Controls -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                
+                <!-- Summary Card Mobile (Visible on small screens) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:hidden">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <p class="text-sm text-gray-500">Allocated</p>
+                            <p class="text-xl font-bold text-indigo-600" id="mobile-total-display">RM 0.00</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Remaining</p>
+                            <p class="text-xl font-bold text-emerald-600" id="mobile-remaining-display">RM 4,500.00</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div id="mobile-progress-bar" class="h-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Categories List -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex-grow flex flex-col">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-xl">
+                        <h2 class="text-lg font-semibold text-gray-800">Categories</h2>
+                        <button onclick="addCategory()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded-lg transition shadow-sm flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add New
+                        </button>
+                    </div>
+                    
+                    <div id="categories-container" class="divide-y divide-gray-100 overflow-y-auto max-h-[600px] p-2">
+                        <!-- Categories will be injected here via JS -->
+                    </div>
+
+                    <div class="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+                        <div class="flex justify-between items-center">
+                            <button onclick="resetData()" class="text-sm text-red-500 hover:text-red-700 font-medium">Reset All</button>
+                            <span id="save-status" class="text-xs text-gray-400 italic">Saved locally</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Visualization -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-24">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-6">Allocation Breakdown</h2>
+                    
+                    <div class="chart-container flex justify-center items-center relative">
+                        <canvas id="allocationChart"></canvas>
+                        <!-- Center Text for Donut -->
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span class="text-sm text-gray-400 font-medium">Total</span>
+                            <span id="chart-total-label" class="text-2xl font-bold text-gray-800">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Summary Stats -->
+                    <div class="mt-8 grid grid-cols-2 gap-4">
+                        <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                            <p class="text-sm text-indigo-600 font-medium">Used Budget</p>
+                            <p class="text-2xl font-bold text-indigo-900 mt-1" id="desktop-total-display">RM 0.00</p>
+                        </div>
+                        <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                            <p class="text-sm text-emerald-600 font-medium">Remaining</p>
+                            <p class="text-2xl font-bold text-emerald-900 mt-1" id="desktop-remaining-display">RM 4,500.00</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Renaming -->
+    <div id="edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm transform transition-all scale-100">
+            <h3 class="text-lg font-bold mb-4 text-gray-900">Rename Category</h3>
+            <input type="text" id="edit-input" class="w-full border border-gray-300 rounded-lg p-2.5 mb-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Enter new name">
+            <div class="flex justify-end gap-2">
+                <button onclick="closeEditModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="saveCategoryName()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm transition">Save</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-  (function() {
-    const tz = 'Asia/Kuala_Lumpur';
-    const maxWeeks = 52;
-    const svg = document.getElementById('dial');
+    <script>
+        // --- Constants & State ---
+        const MAX_BUDGET = 4500;
+        const DEFAULT_CATEGORIES = [
+            { id: 1, name: 'Gym', value: 0 },
+            { id: 2, name: 'Dental', value: 0 },
+            { id: 3, name: 'Tennis', value: 0 },
+            { id: 4, name: 'Pickleball', value: 0 }
+        ];
 
-    const outerR = 220; // outer ring radius
-    const innerR = 140; // inner ring radius
+        let categories = [];
+        let chartInstance = null;
+        let editingId = null;
 
-    const calendarTicks = document.getElementById('calendarTicks');
-    const quarterBackgrounds = document.getElementById('quarterBackgrounds');
-    const monthLabels   = document.getElementById('monthLabels');
-    const quarterLabels = document.getElementById('quarterLabels');
-    const weeksTicks    = document.getElementById('weeksTicks');
+        // --- Initialization ---
+        window.addEventListener('load', () => {
+            loadData();
+            initChart();
+            renderCategories();
+            updateSummary();
+        });
 
-    const outerHandle   = document.getElementById('outerHandle');
-    const innerHandle   = document.getElementById('innerHandle');
-    const deliveryMarker= document.getElementById('deliveryMarker');
-    const bookmarkMarker = document.getElementById('bookmarkMarker');
-    const bookmarkLabel = document.getElementById('bookmarkLabel');
-
-    const dateInput  = document.getElementById('dateInput');
-    const dateLabel  = document.getElementById('dateLabel');
-    const weeksInput = document.getElementById('weeksInput');
-    const weeksRange = document.getElementById('weeksRange');
-    const reverseToggle = document.getElementById('reverseToggle');
-
-    const todayBtn   = document.getElementById('todayBtn');
-    const resetBtn   = document.getElementById('resetBtn');
-    const resultBox  = document.getElementById('resultBox');
-    const liveRegion = document.getElementById('live');
-    const copyBtn    = document.getElementById('copyBtn');
-    const copyStatus = document.getElementById('copyStatus');
-
-    // Bookmark elements
-    const bookmarkNameInput = document.getElementById('bookmarkNameInput');
-    const bookmarkDateInput = document.getElementById('bookmarkDateInput');
-    const saveBookmarkBtn = document.getElementById('saveBookmarkBtn');
-    const loadBookmarkBtn = document.getElementById('loadBookmarkBtn');
-    const clearBookmarkBtn = document.getElementById('clearBookmarkBtn');
-
-    // State variables
-    let reverse = false;
-    let weeks = 0;
-    let currentDate = todayInTZ();
-    let bookmark = null;
-
-    // Utilities
-    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    function pad(n) { return n.toString().padStart(2,'0'); }
-    function isLeap(y) { return new Date(y, 1, 29).getMonth() === 1; }
-    function daysInYear(y) { return isLeap(y) ? 366 : 365; }
-
-    function getOrdinalSuffix(day) {
-        if (day > 3 && day < 21) return 'th';
-        switch (day % 10) {
-            case 1: return 'st';
-            case 2: return 'nd';
-            case 3: return 'rd';
-            default: return 'th';
-        }
-    }
-
-    function fmtDateUK(d) {
-      const day = d.getDate();
-      const month = d.toLocaleString('en-GB', { month: 'short' });
-      const year = d.getFullYear();
-      const suffix = getOrdinalSuffix(day);
-      return `${day}${suffix} ${month} ${year}`;
-    }
-
-    function fmtDateISO(d) {
-      const y = d.getFullYear();
-      const m = pad(d.getMonth()+1);
-      const day = pad(d.getDate());
-      return `${y}-${m}-${day}`;
-    }
-
-    function parseISODate(iso) {
-      const [y,m,d] = iso.split('-').map(Number);
-      return new Date(y, m-1, d, 12, 0, 0, 0);
-    }
-
-    function todayInTZ() {
-      const now = new Date();
-      const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
-      const y = Number(parts.find(p=>p.type==='year').value);
-      const m = Number(parts.find(p=>p.type==='month').value);
-      const d = Number(parts.find(p=>p.type==='day').value);
-      return new Date(y, m-1, d, 12, 0, 0, 0);
-    }
-
-    function dayOfYear(date) {
-      const start = new Date(date.getFullYear(), 0, 1, 12, 0, 0, 0);
-      const diff = (date - start);
-      return Math.floor(diff / 86400000) + 1;
-    }
-
-    function dateFromDoy(year, doy) {
-      return new Date(year, 0, doy, 12, 0, 0, 0);
-    }
-
-    function addDays(date, days) {
-      const d = new Date(date.getTime());
-      d.setDate(d.getDate() + days);
-      return d;
-    }
-
-    function angleFromDoy(doy, year) {
-      const total = daysInYear(year);
-      const frac = (doy - 1) / total;
-      return frac * 360 - 90;
-    }
-
-    function doyFromAngle(angle, year) {
-      const total = daysInYear(year);
-      const a = (angle + 90) % 360;
-      const norm = (a < 0 ? a + 360 : a) / 360;
-      let doy = Math.round(norm * total) + 1;
-      if (doy > total) doy = 1;
-      return doy;
-    }
-
-    function angleFromWeeks(weeks) {
-      return (weeks / maxWeeks) * 360 - 90;
-    }
-
-    function weeksFromAngle(angle) {
-      const a = (angle + 90) % 360;
-      const norm = (a < 0 ? a + 360 : a) / 360;
-      return Math.round(norm * maxWeeks);
-    }
-
-    // Draw static parts: ticks and labels for a given base year
-    function renderCalendarRing(year) {
-      calendarTicks.innerHTML = '';
-      quarterBackgrounds.innerHTML = '';
-      monthLabels.innerHTML = '';
-      quarterLabels.innerHTML = '';
-      const total = daysInYear(year);
-      
-      // Day ticks and labels
-      for (let i=1; i<=total; i++) {
-        const ang = angleFromDoy(i, year) * Math.PI/180;
-        const outer = 220, inner = 220-14;
-        let len = 10;
-        const date = dateFromDoy(year, i);
-        const day = date.getDate();
-        if (day === 1) len = 18; else if (day % 5 === 0) len = 14;
-        const r1 = outer; const r2 = outer - len;
-        const x1 = Math.cos(ang) * r1, y1 = Math.sin(ang) * r1;
-        const x2 = Math.cos(ang) * r2, y2 = Math.sin(ang) * r2;
-        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-        line.setAttribute('x1', x1.toFixed(2));
-        line.setAttribute('y1', y1.toFixed(2));
-        line.setAttribute('x2', x2.toFixed(2));
-        line.setAttribute('y2', y2.toFixed(2));
-        line.setAttribute('stroke', (day===1? 'var(--tick-strong)':'var(--tick)'));
-        line.setAttribute('stroke-width', day===1? '2' : '1.2');
-        calendarTicks.appendChild(line);
-      }
-      
-      // Month and Quarter labels/backgrounds
-      const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'long' });
-      for (let m=0; m<12; m++) {
-        const start = new Date(year, m, 1, 12, 0, 0, 0);
-        const end   = new Date(year, m+1, 0, 12, 0, 0, 0);
-        const startDoy = dayOfYear(start);
-        const endDoy   = dayOfYear(end);
-        const midDoy   = Math.round((startDoy + endDoy)/2);
-        const angDeg   = angleFromDoy(midDoy, year);
-        const ang      = angDeg * Math.PI/180;
-        const r = 242;
-        const x = Math.cos(ang) * r;
-        const y = Math.sin(ang) * r;
-        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-        text.setAttribute('x', x.toFixed(2));
-        text.setAttribute('y', y.toFixed(2));
-        text.setAttribute('text-anchor','middle');
-        text.setAttribute('dominant-baseline','central');
-        text.setAttribute('fill','var(--muted)');
-        text.setAttribute('font-size','12');
-        text.textContent = monthFmt.format(start);
-        monthLabels.appendChild(text);
-      }
-      const quarters = [
-        { name: 'Q1', startMonth: 0, endMonth: 2, color: 'rgba(70, 199, 255, 0.15)' },
-        { name: 'Q2', startMonth: 3, endMonth: 5, color: 'rgba(178, 151, 255, 0.15)' },
-        { name: 'Q3', startMonth: 6, endMonth: 8, color: 'rgba(147, 233, 127, 0.15)' },
-        { name: 'Q4', startMonth: 9, endMonth: 11, color: 'rgba(255, 159, 67, 0.15)' }
-      ];
-      quarters.forEach(q => {
-        const start = new Date(year, q.startMonth, 1, 12, 0, 0, 0);
-        const end   = new Date(year, q.endMonth + 1, 0, 12, 0, 0, 0);
-        const startDoy = dayOfYear(start);
-        const endDoy   = dayOfYear(end);
-        const startAngDeg = angleFromDoy(startDoy, year);
-        const endAngDeg = angleFromDoy(endDoy, year);
-        const outerRadius = 206;
-        const innerRadius = 170;
-        const startAngRad = startAngDeg * Math.PI / 180;
-        const endAngRad = endAngDeg * Math.PI / 180;
-        const x1 = Math.cos(startAngRad) * outerRadius;
-        const y1 = Math.sin(startAngRad) * outerRadius;
-        const x2 = Math.cos(endAngRad) * outerRadius;
-        const y2 = Math.sin(endAngRad) * outerRadius;
-        const x3 = Math.cos(endAngRad) * innerRadius;
-        const y3 = Math.sin(endAngRad) * innerRadius;
-        const x4 = Math.cos(startAngRad) * innerRadius;
-        const y4 = Math.sin(startAngRad) * innerRadius;
-        let angleDiff = endAngDeg - startAngDeg;
-        if (angleDiff < 0) angleDiff += 360;
-        const largeArcFlag = angleDiff > 180 ? 1 : 0;
-        const pathData = [
-          `M ${x1.toFixed(2)} ${y1.toFixed(2)}`,
-          `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
-          `L ${x3.toFixed(2)} ${y3.toFixed(2)}`,
-          `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}`,
-          'Z'
-        ].join(' ');
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('fill', q.color);
-        path.setAttribute('stroke', 'none');
-        quarterBackgrounds.appendChild(path);
-        const midDoy = Math.round((startDoy + endDoy) / 2);
-        const angDeg = angleFromDoy(midDoy, year);
-        const ang = angDeg * Math.PI / 180;
-        const labelRadius = 188;
-        const x = Math.cos(ang) * labelRadius;
-        const y = Math.sin(ang) * labelRadius;
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', x.toFixed(2));
-        text.setAttribute('y', y.toFixed(2));
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('dominant-baseline', 'central');
-        text.setAttribute('fill', 'var(--text)');
-        text.setAttribute('font-size', '16');
-        text.setAttribute('font-weight', 'bold');
-        text.textContent = q.name;
-        quarterLabels.appendChild(text);
-      });
-    }
-
-    function renderWeeksRing() {
-      weeksTicks.innerHTML = '';
-      for (let w=0; w<=maxWeeks; w++) {
-        const ang = angleFromWeeks(w) * Math.PI/180;
-        let len = (w % 5 === 0) ? 16 : 10;
-        const r1 = innerR; const r2 = innerR - len;
-        const x1 = Math.cos(ang) * r1, y1 = Math.sin(ang) * r1;
-        const x2 = Math.cos(ang) * r2, y2 = Math.sin(ang) * r2;
-        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-        line.setAttribute('x1', x1.toFixed(2));
-        line.setAttribute('y1', y1.toFixed(2));
-        line.setAttribute('x2', x2.toFixed(2));
-        line.setAttribute('y2', y2.toFixed(2));
-        line.setAttribute('stroke', (w%5===0? 'var(--tick-strong)':'var(--tick)'));
-        line.setAttribute('stroke-width', (w%5===0? '2':'1.2'));
-        weeksTicks.appendChild(line);
-        if (w % 5 === 0) {
-          const labelR = innerR - 28;
-          const tx = Math.cos(ang) * labelR, ty = Math.sin(ang) * labelR;
-          const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-          text.setAttribute('x', tx.toFixed(2));
-          text.setAttribute('y', ty.toFixed(2));
-          text.setAttribute('text-anchor','middle');
-          text.setAttribute('dominant-baseline','central');
-          text.setAttribute('fill','var(--muted)');
-          text.setAttribute('font-size','12');
-          text.textContent = w.toString();
-          weeksTicks.appendChild(text);
-        }
-      }
-    }
-
-    // Position helpers
-    function placeAtPolar(el, r, angleDeg) {
-      const a = angleDeg * Math.PI/180;
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
-      el.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
-    }
-
-    function updateUI(redrawCalendarYear = false) {
-      // Sync inputs
-      dateLabel.textContent = reverse ? 'Target date' : 'Order date';
-      dateInput.value = fmtDateISO(currentDate);
-      weeksInput.value = weeks;
-      weeksRange.value = weeks;
-      reverseToggle.checked = reverse;
-
-      // Calendar ring year uses the year of the selected date
-      const y = currentDate.getFullYear();
-      if (redrawCalendarYear) renderCalendarRing(y);
-
-      // Position handles
-      const doy = dayOfYear(currentDate);
-      const angDate = angleFromDoy(doy, y);
-      placeAtPolar(outerHandle, outerR, angDate);
-      outerHandle.setAttribute('aria-valuenow', String(doy));
-      outerHandle.setAttribute('aria-valuetext', `${fmtDateUK(currentDate)}`);
-      
-      const angWeeks = angleFromWeeks(weeks);
-      placeAtPolar(innerHandle, innerR, angWeeks);
-      innerHandle.setAttribute('aria-valuenow', String(weeks));
-      innerHandle.setAttribute('aria-valuetext', `${weeks} weeks`);
-
-      // Result marker
-      const { order, delivery } = computeResult();
-      const resultDate = reverse ? order : delivery;
-      const resultYear = currentDate.getFullYear();
-      const resultDoy = dayOfYear(resultDate.getFullYear() === resultYear ? resultDate : new Date(resultYear, resultDate.getMonth(), resultDate.getDate(), 12));
-      const angRes = angleFromDoy(resultDoy, resultYear);
-      placeAtPolar(deliveryMarker, outerR, angRes);
-
-      // Bookmark marker
-      if (bookmark) {
-          const bookmarkDoy = dayOfYear(bookmark.date);
-          const bookmarkYear = bookmark.date.getFullYear();
-          const angBookmark = angleFromDoy(bookmarkDoy, bookmarkYear);
-          placeAtPolar(bookmarkMarker, outerR, angBookmark);
-          bookmarkLabel.textContent = bookmark.name;
-          bookmarkMarker.setAttribute('visibility', 'visible');
-      } else {
-          bookmarkMarker.setAttribute('visibility', 'hidden');
-      }
-
-
-      // Result text
-      const daysTotal = weeks * 7;
-      const orderDateStr = fmtDateUK(order);
-      const deliveryDateStr = fmtDateUK(delivery);
-      
-      const resText = !reverse
-        ? `<strong>Order</strong> <strong class="date-part">${orderDateStr}</strong> + <strong><strong class="weeks-part">${weeks}</strong></strong> week${weeks!==1?'s':''} → <strong><strong class="delivery-part">${deliveryDateStr}</strong></strong> <small>(${daysTotal} days)</small>`
-        : `<strong>Target</strong> <strong class="delivery-part">${deliveryDateStr}</strong> − <strong><strong class="weeks-part">${weeks}</strong></strong> week${weeks!==1?'s':''} → <strong>Order <strong class="date-part">${orderDateStr}</strong></strong> <small>(${daysTotal} days)</small>`;
-      
-      let bookmarkText = '';
-      if (bookmark) {
-          bookmarkText = `<br><strong>Bookmark</strong> <strong class="bookmark-part">${bookmark.name}</strong> at <strong class="bookmark-part">${fmtDateUK(bookmark.date)}</strong>`;
-      }
-      resultBox.innerHTML = resText + bookmarkText;
-      liveRegion.textContent = resultBox.textContent;
-    }
-
-    // Derived
-    function computeResult() {
-      const days = weeks * 7;
-      if (!reverse) {
-        const order = currentDate;
-        const delivery = addDays(order, days);
-        return { order, delivery };
-      } else {
-        const target = currentDate;
-        const order = addDays(target, -days);
-        return { order, delivery: target };
-      }
-    }
-
-    // Init
-    function init() {
-      renderWeeksRing();
-      const today = todayInTZ();
-      currentDate = today;
-      renderCalendarRing(today.getFullYear());
-      updateUI();
-    }
-
-    // Inputs listeners
-    dateInput.addEventListener('input', () => {
-      const d = parseISODate(dateInput.value);
-      if (!isNaN(+d)) {
-        const oldYear = currentDate.getFullYear();
-        currentDate = d;
-        const newYear = currentDate.getFullYear();
-        updateUI(oldYear !== newYear);
-      }
-    });
-
-    weeksInput.addEventListener('input', () => {
-      let v = clamp(parseInt(weeksInput.value || '0', 10), 0, maxWeeks);
-      v = isNaN(v) ? 0 : v;
-      weeks = v;
-      updateUI();
-    });
-
-    weeksRange.addEventListener('input', () => {
-      weeks = parseInt(weeksRange.value, 10);
-      updateUI();
-    });
-
-    reverseToggle.addEventListener('change', () => {
-      reverse = reverseToggle.checked;
-      updateUI();
-    });
-
-    todayBtn.addEventListener('click', () => {
-      const oldYear = currentDate.getFullYear();
-      currentDate = todayInTZ();
-      updateUI(oldYear !== currentDate.getFullYear());
-    });
-
-    resetBtn.addEventListener('click', () => {
-      weeks = 0;
-      const oldYear = currentDate.getFullYear();
-      currentDate = todayInTZ();
-      updateUI(oldYear !== currentDate.getFullYear());
-    });
-
-    copyBtn.addEventListener('click', () => {
-        // Create a temporary textarea element to copy the text from
-        const tempTextarea = document.createElement('textarea');
-        tempTextarea.value = resultBox.textContent.trim();
-        document.body.appendChild(tempTextarea);
-        tempTextarea.select();
-
-        try {
-            const success = document.execCommand('copy');
-            copyStatus.textContent = success ? 'Copied!' : 'Copy failed';
-        } catch (err) {
-            copyStatus.textContent = 'Copy failed';
+        // --- Data Management ---
+        function loadData() {
+            const saved = localStorage.getItem('careBudget');
+            if (saved) {
+                categories = JSON.parse(saved);
+            } else {
+                categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+            }
         }
 
-        document.body.removeChild(tempTextarea);
-        setTimeout(() => copyStatus.textContent = '', 1500);
-    });
-    
-    // Bookmark event listeners
-    saveBookmarkBtn.addEventListener('click', () => {
-        const name = bookmarkNameInput.value;
-        const dateString = bookmarkDateInput.value;
-        if (name && dateString) {
-            const d = parseISODate(dateString);
-            bookmark = { name, date: d };
-            updateUI(true);
-        } else {
-            console.log("Please enter both a name and a date.");
+        function saveData() {
+            localStorage.setItem('careBudget', JSON.stringify(categories));
+            showSaveStatus();
         }
-    });
 
-    loadBookmarkBtn.addEventListener('click', () => {
-        if (bookmark) {
-            const oldYear = currentDate.getFullYear();
-            currentDate = bookmark.date;
-            updateUI(oldYear !== currentDate.getFullYear());
+        function showSaveStatus() {
+            const el = document.getElementById('save-status');
+            el.style.opacity = '1';
+            el.innerText = 'Saved';
+            setTimeout(() => {
+                el.style.opacity = '0.5';
+            }, 2000);
         }
-    });
 
-    clearBookmarkBtn.addEventListener('click', () => {
-        bookmark = null;
-        updateUI(true);
-    });
-
-    // Pointer interactions
-    let dragging = null;
-    function svgPoint(evt) {
-      const pt = svg.createSVGPoint();
-      const ev = evt.touches ? evt.touches[0] : evt;
-      pt.x = ev.clientX; pt.y = ev.clientY;
-      const ctm = svg.getScreenCTM().inverse();
-      const p = pt.matrixTransform(ctm);
-      return p;
-    }
-
-    function angleFromPoint(p) {
-      return Math.atan2(p.y, p.x) * 180/Math.PI;
-    }
-
-    function onPointerDown(which) {
-      return (evt) => {
-        dragging = which;
-        evt.preventDefault();
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp, { once: true });
-        onPointerMove(evt);
-      };
-    }
-
-    function onPointerMove(evt) {
-      if (!dragging) return;
-      const p = svgPoint(evt);
-      let ang = angleFromPoint(p);
-      if (dragging === 'outer') {
-        const newDoy = doyFromAngle(ang, currentDate.getFullYear());
-        const d = dateFromDoy(currentDate.getFullYear(), newDoy);
-        const oldYear = currentDate.getFullYear();
-        currentDate = d;
-        updateUI(oldYear !== currentDate.getFullYear());
-      } else if (dragging === 'inner') {
-        const w = clamp(weeksFromAngle(ang), 0, maxWeeks);
-        weeks = w;
-        updateUI();
-      }
-    }
-
-    function onPointerUp() {
-      dragging = null;
-      window.removeEventListener('pointermove', onPointerMove);
-    }
-
-    outerHandle.addEventListener('pointerdown', onPointerDown('outer'));
-    innerHandle.addEventListener('pointerdown', onPointerDown('inner'));
-    document.getElementById('outerTrack').addEventListener('pointerdown', onPointerDown('outer'));
-    document.getElementById('innerTrack').addEventListener('pointerdown', onPointerDown('inner'));
-
-    // Keyboard controls
-    function keyAdjust(el, type) {
-      el.addEventListener('keydown', (e) => {
-        let handled = true;
-        const step = (key) => (key==='PageUp'||key==='PageDown') ? 5 : 1;
-        if (type==='outer') {
-          if (e.key==='ArrowRight' || e.key==='ArrowUp' || e.key==='PageUp') {
-            currentDate = addDays(currentDate, step(e.key));
-          } else if (e.key==='ArrowLeft' || e.key==='ArrowDown' || e.key==='PageDown') {
-            currentDate = addDays(currentDate, -step(e.key));
-          } else if (e.key==='Home') {
-            currentDate = new Date(currentDate.getFullYear(), 0, 1, 12);
-          } else if (e.key==='End') {
-            currentDate = new Date(currentDate.getFullYear(), 11, 31, 12);
-          } else {
-            handled = false;
-          }
-          if (handled) {
-            e.preventDefault();
-            updateUI(false);
-          }
-        } else {
-          if (e.key==='ArrowRight' || e.key==='ArrowUp' || e.key==='PageUp') {
-            weeks = clamp(weeks + step(e.key), 0, maxWeeks);
-          } else if (e.key==='ArrowLeft' || e.key==='ArrowDown' || e.key==='PageDown') {
-            weeks = clamp(weeks - step(e.key), 0, maxWeeks);
-          } else if (e.key==='Home') {
-            weeks = 0;
-          } else if (e.key==='End') {
-            weeks = maxWeeks;
-          } else {
-            handled = false;
-          }
-          if (handled) {
-            e.preventDefault();
-            updateUI(false);
-          }
+        function resetData() {
+            if(confirm('Are you sure you want to reset all allocations and categories?')) {
+                categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+                saveData();
+                renderCategories();
+                updateChart(true);
+                updateSummary();
+            }
         }
-      });
-    }
 
-    keyAdjust(outerHandle, 'outer');
-    keyAdjust(innerHandle, 'inner');
+        // --- Category Logic ---
+        function addCategory() {
+            const id = Date.now();
+            categories.push({ id, name: 'New Category', value: 0 });
+            saveData();
+            renderCategories();
+            updateChart(true);
+        }
 
-    init();
+        function deleteCategory(id) {
+            if (categories.length <= 1) {
+                alert("You must have at least one category.");
+                return;
+            }
+            if(confirm("Delete this category?")) {
+                categories = categories.filter(c => c.id !== id);
+                saveData();
+                renderCategories();
+                updateChart(true);
+                updateSummary();
+            }
+        }
 
-    console.log('Validation example: 10th Aug 2025 + 10 weeks =', fmtDateUK(addDays(new Date(2025,7,10,12), 70)));
-  })();
-  </script>
+        function openEditModal(id) {
+            editingId = id;
+            const cat = categories.find(c => c.id === id);
+            const input = document.getElementById('edit-input');
+            input.value = cat.name;
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.getElementById('edit-modal').classList.add('flex');
+            input.focus();
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            document.getElementById('edit-modal').classList.remove('flex');
+            editingId = null;
+        }
+
+        function saveCategoryName() {
+            const newName = document.getElementById('edit-input').value.trim();
+            if (newName && editingId) {
+                const cat = categories.find(c => c.id === editingId);
+                if (cat) cat.name = newName;
+                saveData();
+                renderCategories(); // Re-render to update name
+                updateChart(true);
+            }
+            closeEditModal();
+        }
+
+        // --- Input Handling ---
+        function updateAllocation(id, rawValue) {
+            let newValue = parseFloat(rawValue);
+            if (isNaN(newValue)) newValue = 0;
+            if (newValue < 0) newValue = 0;
+
+            // Calculate budget used by OTHERS
+            const currentTotal = categories.reduce((sum, c) => sum + c.value, 0);
+            const thisCategory = categories.find(c => c.id === id);
+            const othersTotal = currentTotal - thisCategory.value;
+            const remainingBudget = MAX_BUDGET - othersTotal;
+
+            // Validation: Clamp value
+            if (newValue > remainingBudget) {
+                newValue = remainingBudget;
+            }
+            
+            // Round to 2 decimals
+            newValue = Math.round(newValue * 100) / 100;
+
+            // Update State
+            thisCategory.value = newValue;
+
+            // Update DOM elements specifically to avoid full re-render (keeps focus)
+            document.getElementById(`slider-${id}`).value = newValue;
+            document.getElementById(`input-${id}`).value = newValue.toFixed(2);
+            document.getElementById(`percent-${id}`).innerText = ((newValue / MAX_BUDGET) * 100).toFixed(1) + '%';
+            
+            // Update Visuals
+            saveData();
+            updateChart(false); // Pass false to prevent animation reset
+            updateSummary();
+        }
+
+        // --- Rendering ---
+        function renderCategories() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+
+            categories.forEach(cat => {
+                const percent = ((cat.value / MAX_BUDGET) * 100).toFixed(1);
+                
+                const div = document.createElement('div');
+                div.className = "p-4 hover:bg-gray-50 transition-colors duration-150";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-gray-700 truncate max-w-[150px] sm:max-w-[200px]" title="${cat.name}">${cat.name}</span>
+                            <button onclick="openEditModal(${cat.id})" class="text-gray-400 hover:text-indigo-600 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                        </div>
+                        <button onclick="deleteCategory(${cat.id})" class="text-gray-300 hover:text-red-500 transition" title="Delete Category">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4 items-center">
+                        <div class="flex-grow w-full relative pt-1">
+                            <input type="range" 
+                                id="slider-${cat.id}"
+                                min="0" 
+                                max="${MAX_BUDGET}" 
+                                step="10" 
+                                value="${cat.value}"
+                                oninput="updateAllocation(${cat.id}, this.value)"
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>0</span>
+                                <span class="font-medium text-indigo-500" id="percent-${cat.id}">${percent}%</span>
+                                <span>RM 4.5k</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <span class="text-gray-500 text-sm font-medium">RM</span>
+                            <input type="number" 
+                                id="input-${cat.id}"
+                                value="${cat.value.toFixed(2)}"
+                                onchange="updateAllocation(${cat.id}, this.value)"
+                                class="w-full sm:w-28 border border-gray-300 rounded-md px-3 py-2 text-right font-mono text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                                min="0" 
+                                max="${MAX_BUDGET}" 
+                                step="0.01">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateSummary() {
+            const total = categories.reduce((sum, c) => sum + c.value, 0);
+            const remaining = Math.max(0, MAX_BUDGET - total);
+            const percentUsed = (total / MAX_BUDGET) * 100;
+
+            // Formatters
+            const fmt = (n) => 'RM ' + n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // Desktop
+            document.getElementById('desktop-total-display').innerText = fmt(total);
+            document.getElementById('desktop-remaining-display').innerText = fmt(remaining);
+            document.getElementById('desktop-remaining-display').className = remaining < 0 ? 'text-2xl font-bold text-red-600 mt-1' : 'text-2xl font-bold text-emerald-900 mt-1';
+            
+            // Mobile
+            document.getElementById('mobile-total-display').innerText = fmt(total);
+            document.getElementById('mobile-remaining-display').innerText = fmt(remaining);
+            document.getElementById('mobile-progress-bar').style.width = percentUsed + '%';
+            document.getElementById('mobile-progress-bar').className = `h-full transition-all duration-300 ${percentUsed > 100 ? 'bg-red-500' : 'bg-indigo-500'}`;
+
+            // Chart Center Label
+            document.getElementById('chart-total-label').innerText = Math.round(percentUsed) + '%';
+        }
+
+        // --- Chart.js Configuration ---
+        function initChart() {
+            const ctx = document.getElementById('allocationChart').getContext('2d');
+            
+            // Color Palette
+            const colors = [
+                '#4F46E5', // Indigo 600
+                '#10B981', // Emerald 500
+                '#F59E0B', // Amber 500
+                '#EC4899', // Pink 500
+                '#3B82F6', // Blue 500
+                '#8B5CF6', // Violet 500
+                '#EF4444', // Red 500
+                '#6366F1'  // Indigo 500
+            ];
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: colors,
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }, {
+                        // Background track for empty space
+                        data: [1],
+                        backgroundColor: ['#F3F4F6'],
+                        borderWidth: 0,
+                        weight: 0.2 // Thinner ring behind if needed, but using logic below is better
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%', // Thinner donut
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    family: "'Inter', sans-serif",
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += 'RM ' + context.parsed.toLocaleString('en-MY', { minimumFractionDigits: 2 });
+                                    }
+                                    return label;
+                                }
+                            },
+                            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: { family: "'Inter', sans-serif" },
+                            bodyFont: { family: "'Inter', sans-serif" }
+                        }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true,
+                        duration: 400
+                    }
+                }
+            });
+            updateChart(true);
+        }
+
+        function updateChart(animate = true) {
+            if (!chartInstance) return;
+
+            const total = categories.reduce((sum, c) => sum + c.value, 0);
+            const remaining = Math.max(0, MAX_BUDGET - total);
+
+            // Create Data Arrays
+            const labels = categories.map(c => c.name);
+            const values = categories.map(c => c.value);
+            
+            // Add 'Remaining' section to chart if budget isn't full
+            if (remaining > 0) {
+                labels.push('Remaining');
+                values.push(remaining);
+            }
+
+            // Colors mapping
+            const baseColors = [
+                '#4F46E5', '#10B981', '#F59E0B', '#EC4899', 
+                '#3B82F6', '#8B5CF6', '#EF4444', '#6366F1'
+            ];
+            // Ensure enough colors
+            while (baseColors.length < categories.length) {
+                baseColors.push('#' + Math.floor(Math.random()*16777215).toString(16));
+            }
+            
+            const bgColors = baseColors.slice(0, categories.length);
+            if (remaining > 0) {
+                bgColors.push('#F3F4F6'); // Gray for remaining
+            }
+
+            // MODIFY DATASET IN PLACE instead of replacing it
+            // This prevents the "reset" animation
+            const dataset = chartInstance.data.datasets[0];
+            
+            chartInstance.data.labels = labels;
+            dataset.data = values;
+            dataset.backgroundColor = bgColors;
+            dataset.borderWidth = 2;
+            dataset.borderColor = '#ffffff';
+
+            // Clean up the background track dataset if it still exists (from init)
+            // We only need the main dataset now as "Remaining" handles the empty space
+            if (chartInstance.data.datasets.length > 1) {
+                chartInstance.data.datasets.splice(1);
+            }
+            
+            // Use 'none' mode when animating sliders to prevent flickering
+            chartInstance.update(animate ? 'default' : 'none');
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('edit-modal');
+            if (event.target == modal) {
+                closeEditModal();
+            }
+        }
+    </script>
 </body>
 </html>
